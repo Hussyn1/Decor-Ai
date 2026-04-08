@@ -53,6 +53,8 @@ class AiInsight {
   final String message;
   final double impactScore;
   final List<double>? suggestedPosition; // [x, y, z] for Magic Arrange
+  final String? suggestedAction; // e.g., "FILTER_STYLE"
+  final String? suggestedValue; // e.g., "Industrial"
 
   AiInsight({
     required this.type,
@@ -60,6 +62,8 @@ class AiInsight {
     required this.message,
     required this.impactScore,
     this.suggestedPosition,
+    this.suggestedAction,
+    this.suggestedValue,
   });
 
   factory AiInsight.fromJson(Map<String, dynamic> json) {
@@ -73,6 +77,8 @@ class AiInsight {
                 .map((e) => (e as num).toDouble())
                 .toList()
           : null,
+      suggestedAction: json['suggested_action'],
+      suggestedValue: json['suggested_value'],
     );
   }
 }

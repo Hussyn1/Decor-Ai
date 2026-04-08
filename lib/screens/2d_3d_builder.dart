@@ -4,6 +4,7 @@ import 'package:model_viewer_plus/model_viewer_plus.dart';
 import '../controllers/three_d_generator_controller.dart';
 import '../core/app_theme.dart';
 import 'model_viewer_screen.dart';
+import 'ar_view_screen.dart';
 
 class TwoDToThreeDBuilder extends StatefulWidget {
   const TwoDToThreeDBuilder({super.key});
@@ -537,10 +538,18 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () => Get.snackbar(
-                            'AR',
-                            'Passing model to AR Scene...',
-                          ),
+                          onPressed: () {
+                            if (controller.glbUrl.value.isNotEmpty) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ArViewScreen(
+                                    initialModelUrl: controller.glbUrl.value,
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                           icon: const Icon(
                             Icons.view_in_ar,
                             color: Colors.white,

@@ -1,0 +1,192 @@
+{
+  "name": "AI Interior Style Recommendation System",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "style-recommend",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Validate and prepare input\nconst body = $input.first().json.body;\n\nconst required = ['room_type', 'occasion', 'existing_colors', 'furniture_style'];\nfor (const field of required) {\n  if (!body[field]) {\n    throw new Error(`Missing required field: ${field}`);\n  }\n}\n\nconst existingColors = Array.isArray(body.existing_colors)\n  ? body.existing_colors.join(', ')\n  : body.existing_colors;\n\nreturn {\n  room_type: body.room_type,\n  occasion: body.occasion,\n  existing_colors: existingColors,\n  furniture_style: body.furniture_style,\n  budget: body.budget || 'mid-range',\n  user_id: body.user_id || 'anonymous',\n  timestamp: new Date().toISOString()\n};"
+      },
+      "id": "node-validate",
+      "name": "Validate & Prepare Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "resource": "chat",
+        "model": "gpt-4",
+        "messages": {
+          "values": [
+            {
+              "role": "system",
+              "content": "You are an expert interior designer and color consultant with 20+ years of experience. Your job is to provide detailed, personalized interior design recommendations.\n\nAlways respond with a valid JSON object (no markdown, no code blocks) using this exact structure:\n{\n  \"color_palette\": [\n    { \"name\": \"Color Name\", \"hex\": \"#XXXXXX\", \"role\": \"primary/accent/neutral\", \"why\": \"reason\" }\n  ],\n  \"furniture_recommendations\": [\n    { \"item\": \"Furniture Name\", \"style\": \"style description\", \"color_suggestion\": \"color\", \"why\": \"reason\" }\n  ],\n  \"occasion_looks\": [\n    { \"theme\": \"Theme Name\", \"description\": \"description\", \"key_elements\": [\"element1\", \"element2\"] }\n  ],\n  \"color_pairing_tips\": \"paragraph explaining how existing colors pair with new palette\",\n  \"overall_design_summary\": \"brief summary of the overall recommended style\",\n  \"dall_e_prompt\": \"A detailed prompt for DALL-E to visualize this room design\"\n}"
+            },
+            {
+              "role": "user",
+              "content": "=Please provide interior design recommendations for:\n\n🏠 Room Type: {{ $json.room_type }}\n🎯 Style/Occasion: {{ $json.occasion }}\n🎨 Existing Colors: {{ $json.existing_colors }}\n🛋️ Furniture Style Preference: {{ $json.furniture_style }}\n💰 Budget: {{ $json.budget }}\n\nProvide color palettes, furniture suggestions, occasion-based looks, and how existing colors can be paired. Remember to also generate a vivid DALL-E image prompt."
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.7,
+          "maxTokens": 2000
+        }
+      },
+      "id": "node-gpt4",
+      "name": "GPT-4 Style Advisor",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [680, 300],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse GPT-4 response\nconst rawContent = $input.first().json.message?.content || $input.first().json.choices?.[0]?.message?.content || '';\n\nlet parsed;\ntry {\n  parsed = JSON.parse(rawContent);\n} catch (e) {\n  // Try extracting JSON from response if wrapped in markdown\n  const match = rawContent.match(/\\{[\\s\\S]*\\}/);\n  if (match) {\n    parsed = JSON.parse(match[0]);\n  } else {\n    throw new Error('Failed to parse GPT-4 response as JSON');\n  }\n}\n\nreturn {\n  ...parsed,\n  raw_gpt_response: rawContent,\n  input_data: {\n    room_type: $('Validate & Prepare Input').first().json.room_type,\n    occasion: $('Validate & Prepare Input').first().json.occasion,\n    existing_colors: $('Validate & Prepare Input').first().json.existing_colors,\n    furniture_style: $('Validate & Prepare Input').first().json.furniture_style,\n    budget: $('Validate & Prepare Input').first().json.budget,\n    user_id: $('Validate & Prepare Input').first().json.user_id,\n    timestamp: $('Validate & Prepare Input').first().json.timestamp\n  }\n};"
+      },
+      "id": "node-parse",
+      "name": "Parse GPT-4 Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "generate",
+        "prompt": "={{ $json.dall_e_prompt }}",
+        "options": {
+          "size": "1024x1024",
+          "quality": "hd",
+          "style": "vivid",
+          "responseFormat": "url"
+        }
+      },
+      "id": "node-dalle",
+      "name": "DALL-E Room Visualization",
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1,
+      "position": [1120, 300],
+      "credentials": {
+        "openAiApi": {
+          "name": "OpenAI API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Merge DALL-E image URL with recommendation data\nconst recommendation = $('Parse GPT-4 Response').first().json;\nconst dalleResponse = $input.first().json;\n\nconst imageUrl = dalleResponse.data?.[0]?.url || dalleResponse.url || 'Image generation failed';\n\nreturn {\n  ...recommendation,\n  room_visualization_url: imageUrl\n};"
+      },
+      "id": "node-merge",
+      "name": "Merge Image + Recommendations",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": { "__rl": true, "mode": "id", "value": "YOUR_GOOGLE_SHEET_ID" },
+        "sheetName": { "__rl": true, "mode": "name", "value": "Recommendations Log" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Timestamp": "={{ $json.input_data.timestamp }}",
+            "User ID": "={{ $json.input_data.user_id }}",
+            "Room Type": "={{ $json.input_data.room_type }}",
+            "Occasion/Style": "={{ $json.input_data.occasion }}",
+            "Existing Colors": "={{ $json.input_data.existing_colors }}",
+            "Furniture Style": "={{ $json.input_data.furniture_style }}",
+            "Budget": "={{ $json.input_data.budget }}",
+            "Color Palette": "={{ JSON.stringify($json.color_palette) }}",
+            "Furniture Recommendations": "={{ JSON.stringify($json.furniture_recommendations) }}",
+            "Occasion Looks": "={{ JSON.stringify($json.occasion_looks) }}",
+            "Design Summary": "={{ $json.overall_design_summary }}",
+            "Room Image URL": "={{ $json.room_visualization_url }}"
+          }
+        },
+        "options": {}
+      },
+      "id": "node-sheets",
+      "name": "Log to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [1560, 300],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "name": "Google Sheets OAuth2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"success\": true,\n  \"user_id\": \"{{ $('Validate & Prepare Input').first().json.user_id }}\",\n  \"timestamp\": \"{{ $('Validate & Prepare Input').first().json.timestamp }}\",\n  \"recommendations\": {\n    \"color_palette\": {{ JSON.stringify($('Merge Image + Recommendations').first().json.color_palette) }},\n    \"furniture_recommendations\": {{ JSON.stringify($('Merge Image + Recommendations').first().json.furniture_recommendations) }},\n    \"occasion_looks\": {{ JSON.stringify($('Merge Image + Recommendations').first().json.occasion_looks) }},\n    \"color_pairing_tips\": \"{{ $('Merge Image + Recommendations').first().json.color_pairing_tips }}\",\n    \"overall_design_summary\": \"{{ $('Merge Image + Recommendations').first().json.overall_design_summary }}\",\n    \"room_visualization_url\": \"{{ $('Merge Image + Recommendations').first().json.room_visualization_url }}\"\n  }\n}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              { "name": "Content-Type", "value": "application/json" }
+            ]
+          }
+        }
+      },
+      "id": "node-respond",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1780, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [[{ "node": "Validate & Prepare Input", "type": "main", "index": 0 }]]
+    },
+    "Validate & Prepare Input": {
+      "main": [[{ "node": "GPT-4 Style Advisor", "type": "main", "index": 0 }]]
+    },
+    "GPT-4 Style Advisor": {
+      "main": [[{ "node": "Parse GPT-4 Response", "type": "main", "index": 0 }]]
+    },
+    "Parse GPT-4 Response": {
+      "main": [[{ "node": "DALL-E Room Visualization", "type": "main", "index": 0 }]]
+    },
+    "DALL-E Room Visualization": {
+      "main": [[{ "node": "Merge Image + Recommendations", "type": "main", "index": 0 }]]
+    },
+    "Merge Image + Recommendations": {
+      "main": [[{ "node": "Log to Google Sheets", "type": "main", "index": 0 }]]
+    },
+    "Log to Google Sheets": {
+      "main": [[{ "node": "Respond to Webhook", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": ["AI", "Interior Design", "Style Recommendation", "OpenAI", "GPT-4", "DALL-E"],
+  "meta": {
+    "templateCredsSetupCompleted": false,
+    "instanceId": "your-n8n-instance-id"
+  }
+}

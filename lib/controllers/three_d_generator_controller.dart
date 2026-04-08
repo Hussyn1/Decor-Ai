@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/trellis_service.dart';
 
 class ThreeDGeneratorController extends GetxController {
   var isGenerating = false.obs;
@@ -12,10 +13,10 @@ class ThreeDGeneratorController extends GetxController {
   final ImagePicker _picker = ImagePicker();
 
   static const List<String> generationSteps = [
-    'Analyzing image…',
-    'Extracting geometry…',
-    'Generating textures…',
-    'Building 3D model…',
+    'Uploading image…',
+    'Analyzing geometry…',
+    'Generating 3D mesh…',
+    'Finalizing model…',
   ];
 
   bool get isModelReady => glbUrl.value.isNotEmpty && !isGenerating.value;
@@ -36,19 +37,34 @@ class ThreeDGeneratorController extends GetxController {
 
     isGenerating.value = true;
     generationStep.value = 0;
+    statusMessage.value = "Starting generation...";
 
-    // Simulate multi-step AI generation
-    for (int i = 0; i < generationSteps.length; i++) {
-      generationStep.value = i;
-      statusMessage.value = generationSteps[i];
-      await Future.delayed(const Duration(seconds: 2));
+    try {
+      // Step 1: Uploading
+      generationStep.value = 0;
+      statusMessage.value = generationSteps[0];
+
+      // Call the API
+      final String generatedUrl = await TrellisService.generate3DModel(
+        selectedImage.value!,
+      );
+
+      // Step 3: Success
+      generationStep.value = 3;
+      statusMessage.value = generationSteps[3];
+
+      glbUrl.value = generatedUrl;
+      statusMessage.value = '3D model generated successfully!';
+    } catch (e) {
+      statusMessage.value = "Error: $e";
+      Get.snackbar(
+        "Generation Failed",
+        e.toString(),
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      isGenerating.value = false;
     }
-
-    // Set sample GLB model URL (replace with real API response later)
-    glbUrl.value = 'https://modelviewer.dev/shared-assets/models/Astronaut.glb';
-
-    isGenerating.value = false;
-    statusMessage.value = '3D model generated successfully!';
   }
 
   void reset() {

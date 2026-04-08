@@ -30,7 +30,9 @@ import '../core/ar_data.dart';
 
 class ArViewScreen extends StatefulWidget {
   final Project? project;
-  const ArViewScreen({super.key, this.project});
+  final String? initialModelUrl; // Added: Optional URL for generated model
+
+  const ArViewScreen({super.key, this.project, this.initialModelUrl});
 
   @override
   State<ArViewScreen> createState() => _ArViewScreenState();
@@ -63,7 +65,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
   final Map<String, dynamic> _pendingDownloads =
       {}; // Map<String, Completer<ARAnchor>>
 
-  final List<Map<String, dynamic>> _furniture = ArData.furniture;
+  List<Map<String, dynamic>> _furniture = List.from(
+    ArData.furniture,
+  ); // Make mutable copy
   final List<Map<String, dynamic>> _materialSwatches = ArData.materialSwatches;
   int _selectedColorIndex = 0;
 
@@ -121,6 +125,23 @@ class _ArViewScreenState extends State<ArViewScreen> {
     _isRestored = false;
     _isScanning = false;
     _arController.clearScene();
+
+    // Inject custom model if provided
+    if (widget.initialModelUrl != null) {
+      print(
+        "BREADCRUMB: Injecting custom generated model: ${widget.initialModelUrl}",
+      );
+      _furniture.insert(0, {
+        "name": "AI Generated Model",
+        "image":
+            "https://cdn-icons-png.flaticon.com/512/616/616490.png", // Generic icon
+        "model": widget.initialModelUrl,
+        "description": "Your custom AI generated furniture",
+        "scale": 1.0, // Default scale
+      });
+      // Auto-select the new item
+      _selectedFurnitureIndex = 0;
+    }
 
     // Initialize project
     if (widget.project != null) {
@@ -277,6 +298,15 @@ class _ArViewScreenState extends State<ArViewScreen> {
                   _shareProject,
                   color: Colors.greenAccent.withOpacity(0.8),
                 ),
+                const SizedBox(width: 12),
+                if (_furniture.length != ArData.furniture.length)
+                  _buildCircleButton(Icons.filter_list_off, () {
+                    setState(() {
+                      _furniture = List.from(ArData.furniture);
+                      _selectedFurnitureIndex = 0;
+                    });
+                    _showStatus("Show all furniture");
+                  }, color: Colors.orangeAccent),
                 const SizedBox(width: 12),
                 _buildCircleButton(Icons.settings, () {}),
               ],
@@ -967,13 +997,15 @@ class _ArViewScreenState extends State<ArViewScreen> {
   }
 
   // --- AI RECOMMENDATION LOGIC ---
-  Future<void> _runAiAnalysis() async {
+  Future<void> _runAiAnalysis({bool silent = true}) async {
     if (_arController.aiAnalysisState.value.isLoading) return;
-    print("AR View: Starting AI Spatial Analysis...");
+    print("AR View: Starting AI Spatial Analysis (Silent: $silent)...");
 
-    _arController.aiAnalysisState.value = ArOperationState.loading();
+    if (!silent) {
+      _arController.aiAnalysisState.value = ArOperationState.loading();
+    }
     // Keep local for UI updates if needed, but rely on controller for overlay
-    setState(() => _isAnalyzing = true);
+    if (mounted) setState(() => _isAnalyzing = true);
 
     try {
       // 1. Map placed nodes to metadata
@@ -1045,6 +1077,23 @@ class _ArViewScreenState extends State<ArViewScreen> {
   }
 
   Future<void> _magicArrange(AiInsight insight) async {
+    // 1. Handle Style Filtering Action
+    if (insight.suggestedAction == "FILTER_STYLE" &&
+        insight.suggestedValue != null) {
+      _showStatus("Filtering for ${insight.suggestedValue} style... 🔎");
+
+      // We maintain the original custom models and filtered ArData items
+      final List<Map<String, dynamic>> filtered = ArData.furniture
+          .where((f) => f['style'] == insight.suggestedValue)
+          .toList();
+
+      setState(() {
+        _furniture = filtered;
+        _selectedFurnitureIndex = 0;
+      });
+      return;
+    }
+
     if (insight.suggestedPosition == null || nodes.isEmpty) return;
 
     final suggestion = insight.suggestedPosition!;
@@ -1270,7 +1319,50 @@ class _ArViewScreenState extends State<ArViewScreen> {
       _isRestored = true;
     });
 
-    _showStatus("Grounding design... Please wait. ⏳");
+    // Confirmation Dialog for Restoration
+    bool shouldRestore = true;
+    if (_currentProject.items.isNotEmpty) {
+      if (!mounted) return;
+      shouldRestore =
+          await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text("Resume Design?"),
+              content: Text(
+                "This project has ${_currentProject.items.length} items from a previous session.\n\nDo you want to restore them or start fresh?",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false), // Start Fresh
+                  child: const Text(
+                    "Start Fresh",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true), // Restore
+                  child: const Text("Restore Items"),
+                ),
+              ],
+            ),
+          ) ??
+          true;
+    }
+
+    if (!shouldRestore) {
+      _showStatus("Starting fresh! 🌱");
+      setState(() {
+        _currentProject.items.clear();
+        _restorationOffset = vector.Vector3.zero();
+      });
+      // Grounding complete, but no items to load
+      return;
+    }
+
+    _showStatus(
+      "Grounding design... Restoring ${_currentProject.items.length} items. ⏳",
+    );
 
     // 2. Load the items immediately with Anchored Loading
     await _loadProjectItems(groundingHit: hit);
@@ -1362,7 +1454,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
         _showError(
           "AI Analysis Failed",
           state.errorMessage ?? "Unknown error",
-          onRetry: _runAiAnalysis,
+          onRetry: () => _runAiAnalysis(silent: false),
         );
       }
     });

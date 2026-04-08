@@ -6,7 +6,8 @@ import '../core/app_theme.dart';
 ///
 /// Displays AI-generated recommendations, budget tracking,
 /// and auto-arrange functionality for the AR scene.
-class AiInsightsOverlay extends StatelessWidget {
+/// Now expanded/collapsed to be less intrusive.
+class AiInsightsOverlay extends StatefulWidget {
   final List<AiInsight> activeInsights;
   final double totalBudget;
   final bool isAnalyzing;
@@ -27,93 +28,167 @@ class AiInsightsOverlay extends StatelessWidget {
   });
 
   @override
+  State<AiInsightsOverlay> createState() => _AiInsightsOverlayState();
+}
+
+class _AiInsightsOverlayState extends State<AiInsightsOverlay> {
+  bool _isExpanded = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (activeInsights.isEmpty && !isAnalyzing && nodesCount == 0) {
+    if (widget.activeInsights.isEmpty &&
+        !widget.isAnalyzing &&
+        widget.nodesCount == 0) {
       return const SizedBox.shrink();
     }
 
     return Positioned(
-      top: 100,
+      top: 140,
       left: 16,
       right: 16,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment:
+            CrossAxisAlignment.end, // Align to right for expanding
         children: [
-          // Budget Tracking Row
-          if (nodesCount > 0) _buildBudgetTracker(),
+          // Budget Tracking (Always visible if items exist)
+          if (widget.nodesCount > 0) _buildBudgetTracker(),
 
-          // AI Analyzing Indicator
-          if (isAnalyzing) _buildAnalyzingIndicator(),
+          // AI Analyzing Indicator (Always visible when active)
+          if (widget.isAnalyzing) _buildAnalyzingIndicator(),
 
-          // AI Insights Cards
-          ...activeInsights
-              .take(3)
-              .map((insight) => _buildInsightCard(insight)),
+          // Insights Toggle / List
+          if (widget.activeInsights.isNotEmpty) ...[
+            GestureDetector(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _isExpanded ? Icons.expand_less : Icons.expand_more,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _isExpanded
+                          ? "Hide AI Insights"
+                          : "AI Insights (${widget.activeInsights.length})",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (!_isExpanded) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: Colors.orangeAccent,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (_isExpanded)
+              ...widget.activeInsights
+                  .take(3)
+                  .map((insight) => _buildInsightCard(insight)),
+          ],
         ],
       ),
     );
   }
 
   Widget _buildBudgetTracker() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(25),
-        border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.5)),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.account_balance_wallet,
-            color: AppTheme.primaryBlue,
-            size: 16,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(25),
+          border: Border.all(
+            color: AppTheme.primaryBlue.withValues(alpha: 0.5),
           ),
-          const SizedBox(width: 8),
-          const Text(
-            "Est. Total:",
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const Spacer(),
-          Text(
-            "\$${totalBudget.toStringAsFixed(0)}",
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.account_balance_wallet,
+              color: AppTheme.primaryBlue,
+              size: 16,
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            const Text(
+              "Est:",
+              style: TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              "\$${widget.totalBudget.toStringAsFixed(0)}",
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildAnalyzingIndicator() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: AppTheme.primaryBlue.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: const Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 12,
-            height: 12,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 2,
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: AppTheme.primaryBlue.withValues(alpha: 0.9),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2,
+              ),
             ),
-          ),
-          SizedBox(width: 10),
-          Text(
-            "AI Scanning space...",
-            style: TextStyle(color: Colors.white, fontSize: 12),
-          ),
-        ],
+            SizedBox(width: 10),
+            Text(
+              "Analyzing...",
+              style: TextStyle(color: Colors.white, fontSize: 12),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -150,8 +225,12 @@ class AiInsightsOverlay extends StatelessWidget {
         border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 20),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, color: color, size: 20),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -170,11 +249,12 @@ class AiInsightsOverlay extends StatelessWidget {
                   insight.message,
                   style: const TextStyle(color: Colors.white70, fontSize: 11),
                 ),
-                if (insight.suggestedPosition != null && onMagicArrange != null)
+                if (insight.suggestedPosition != null &&
+                    widget.onMagicArrange != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 8.0),
                     child: GestureDetector(
-                      onTap: () => onMagicArrange!(insight),
+                      onTap: () => widget.onMagicArrange!(insight),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -205,13 +285,56 @@ class AiInsightsOverlay extends StatelessWidget {
                       ),
                     ),
                   ),
+                if (insight.suggestedAction == "FILTER_STYLE" &&
+                    insight.suggestedValue != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: GestureDetector(
+                      onTap: () {
+                        // We will handle this in the parent screen via MagicArrange callback
+                        // or a new callback. Let's reuse onMagicArrange or extend the widget.
+                        // For now, let's reuse onMagicArrange as a'Generic Action' handler if possible
+                        // Or just let it be handled by the parent if we passed it.
+                        widget.onMagicArrange!(insight);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.greenAccent.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.search,
+                              color: Colors.white,
+                              size: 12,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              "Show ${insight.suggestedValue} Items",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-          if (onDismissInsight != null)
+          if (widget.onDismissInsight != null)
             IconButton(
               icon: const Icon(Icons.close, color: Colors.white54, size: 16),
-              onPressed: () => onDismissInsight!(insight),
+              onPressed: () => widget.onDismissInsight!(insight),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),

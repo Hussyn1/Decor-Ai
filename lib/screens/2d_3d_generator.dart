@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../controllers/three_d_generator_controller.dart';
+import 'ar_view_screen.dart'; // Added import
 
 class ThreeDGeneratorScreen extends StatelessWidget {
   const ThreeDGeneratorScreen({super.key});
@@ -116,13 +117,42 @@ class ThreeDGeneratorScreen extends StatelessWidget {
             // Status Message
             Obx(
               () => controller.statusMessage.value.isNotEmpty
-                  ? Text(
-                      controller.statusMessage.value,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.blue[800],
-                        fontWeight: FontWeight.w500,
-                      ),
+                  ? Column(
+                      children: [
+                        Text(
+                          controller.statusMessage.value,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (controller.glbUrl.value.isNotEmpty &&
+                            !controller
+                                .isGenerating
+                                .value) // Show "Place in Room" when ready
+                          Padding(
+                            padding: const EdgeInsets.only(top: 15),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ArViewScreen(
+                                      initialModelUrl: controller.glbUrl.value,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.view_in_ar),
+                              label: const Text('Place in Room'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
                     )
                   : const SizedBox.shrink(),
             ),

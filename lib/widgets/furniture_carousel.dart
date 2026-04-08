@@ -20,12 +20,12 @@ class FurnitureCarousel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: Positioned(
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 100,
+    return Positioned(
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 100,
+      child: RepaintBoundary(
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4)),

@@ -52,10 +52,10 @@ class ArControlPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     if (selectedNode == null) return const SizedBox.shrink();
 
-    return RepaintBoundary(
-      child: Positioned(
-        top: 130,
-        right: 20,
+    return Positioned(
+      top: 120, // Moved down to avoid AI Insights overlap
+      right: 16,
+      child: RepaintBoundary(
         child: Column(
           children: [
             _buildControlButton(
