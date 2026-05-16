@@ -17,6 +17,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
     with TickerProviderStateMixin {
   late AnimationController _progressController;
   final controller = Get.put(ThreeDGeneratorController());
+  bool _isNavigatingContext = false;
 
   @override
   void initState() {
@@ -178,16 +179,34 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
 
         // STATE 1: Model is ready — show interactive 3D viewer
         if (hasModel && !isGenerating) {
+          if (_isNavigatingContext) {
+            return const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: AppTheme.primaryBlue),
+                  SizedBox(height: 16),
+                  Text(
+                    'Memory freed for AR view...',
+                    style: TextStyle(color: Colors.white70),
+                  ),
+                ],
+              ),
+            );
+          }
           return Stack(
             children: [
               // Interactive 3D model viewer
               ModelViewer(
-                src: controller.glbUrl.value,
+                src: controller.localGlbPath.value.isNotEmpty 
+                     ? 'file://${controller.localGlbPath.value}' 
+                     : controller.glbUrl.value,
                 alt: '3D furniture model',
                 ar: false,
                 autoRotate: true,
                 cameraControls: true,
-                backgroundColor: const Color(0xFF0F1115),
+                backgroundColor: const Color(0xFFEEEEEE), // Light grey instead of black
+                shadowIntensity: 1.0,
                 autoRotateDelay: 0,
               ),
 
@@ -321,7 +340,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                                   Padding(
                                     padding: const EdgeInsets.only(top: 8),
                                     child: Text(
-                                      'GENERATING ${(progress * 100).toInt()}%',
+                                      'GENERATING ${controller.progress.value}%',
                                       style: const TextStyle(
                                         color: Colors.white70,
                                         fontWeight: FontWeight.bold,
@@ -334,15 +353,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Obx(
                                       () => Text(
-                                        controller.generationStep.value <
-                                                ThreeDGeneratorController
-                                                    .generationSteps
-                                                    .length
-                                            ? ThreeDGeneratorController
-                                                  .generationSteps[controller
-                                                  .generationStep
-                                                  .value]
-                                            : 'Finalizing…',
+                                        controller.statusMessage.value,
                                         style: const TextStyle(
                                           color: Colors.white54,
                                           fontSize: 11,
@@ -512,15 +523,20 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
+                          onPressed: () async {
+                            final glbUrl = controller.glbUrl.value;
+                            setState(() => _isNavigatingContext = true);
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (_) => ModelViewerScreen(
-                                  glbUrl: controller.glbUrl.value,
+                                  glbUrl: glbUrl.startsWith('/') || glbUrl.contains('Application Documents')
+                                      ? 'file://$glbUrl'
+                                      : glbUrl,
                                 ),
                               ),
                             );
+                            if (mounted) setState(() => _isNavigatingContext = false);
                           },
                           icon: const Icon(Icons.fullscreen),
                           label: const Text('View full 3D model'),
@@ -538,9 +554,10 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
-                          onPressed: () {
+                          onPressed: () async {
                             if (controller.glbUrl.value.isNotEmpty) {
-                              Navigator.push(
+                              setState(() => _isNavigatingContext = true);
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => ArViewScreen(
@@ -548,6 +565,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                                   ),
                                 ),
                               );
+                              if (mounted) setState(() => _isNavigatingContext = false);
                             }
                           },
                           icon: const Icon(

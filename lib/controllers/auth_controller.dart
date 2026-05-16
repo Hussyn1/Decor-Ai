@@ -1,19 +1,20 @@
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-import 'package:flutter/material.dart';
 import '../screens/home_screen.dart';
 import '../screens/auth/login_screen.dart'; // For logout redirection
 import 'dart:io';
 import 'package:get/get_connect/http/src/multipart/multipart_file.dart'
     as get_multipart;
+import '../core/api_error_handler.dart';
+import '../core/api_config.dart';
 
 class AuthController extends GetxController {
   final isLoading = false.obs;
   final Rx<Map<String, dynamic>?> currentUser = Rx<Map<String, dynamic>?>(null);
 
-  // Base URL for API calls - Ensure port 5000 is included
-  static const String baseUrl = 'http://192.168.100.8:5000/api/auth';
+  // Base URL for API calls
+  static String get baseUrl => ApiConfig.authEndpoint;
 
   @override
   void onInit() {
@@ -25,7 +26,6 @@ class AuthController extends GetxController {
     final prefs = await SharedPreferences.getInstance();
     final String? userData = prefs.getString('user_data');
     final String? token = prefs.getString('auth_token');
-
     if (userData != null) {
       currentUser.value = jsonDecode(userData);
     }
@@ -50,34 +50,44 @@ class AuthController extends GetxController {
       final response = await _connect.get(
         '$baseUrl/me',
         headers: {'Authorization': 'Bearer $token'},
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = response.body;
-        // Merge with existing token if needed, or just update user data
-        // backend /me returns {id, username, email}
-        // we might want to keep the token in the map if our app expects it,
-        // but currentUser usually just needs user info.
-        // Let's update the currentUser observable
         currentUser.value = data;
-
-        // Update cached data (preserving token if it was in the old data,
-        // but /me doesn't return token usually. We should handle this carefully
-        // if _saveSession expects a token in the map for 'user_data' string.)
-        // For now, let's just update the observable for UI.
+      } else if (response.statusCode == 401) {
+        // Token expired — force re-login
+        await logout();
+      } else if (response.statusCode != null) {
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode!,
+          response.body,
+        );
+        print("Profile fetch error: $error");
       }
     } catch (e) {
+      // Silent fail for background profile refresh — don't annoy user
       print("Error fetching profile: $e");
     }
   }
 
   Future<void> login(String email, String password) async {
+    // Input validation
+    if (email.trim().isEmpty || password.trim().isEmpty) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Missing Fields',
+        message: 'Please enter both email and password.',
+        type: AppErrorType.validation,
+      ));
+      return;
+    }
+
     isLoading.value = true;
     try {
       final response = await _connect.post('$baseUrl/login', {
-        'email': email,
+        'email': email.trim(),
         'password': password,
-      });
+      }).timeout(const Duration(seconds: 20));
 
       isLoading.value = false;
 
@@ -85,43 +95,48 @@ class AuthController extends GetxController {
         final data = response.body;
         await _saveSession(data);
         Get.offAll(() => const HomeScreen());
-        Get.snackbar(
-          "Success",
-          "Welcome back!",
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        ApiErrorHandler.showSuccess("Success", "Welcome back!");
       } else {
-        final message =
-            (response.body is Map && response.body['message'] != null)
-            ? response.body['message']
-            : "Login failed (Status: ${response.statusCode})";
-        Get.snackbar(
-          "Error",
-          message,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
         );
+        ApiErrorHandler.showError(error);
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar(
-        "Error",
-        "Connection failed: $e",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
     }
   }
 
   Future<void> signup(String username, String email, String password) async {
+    // Input validation
+    if (username.trim().isEmpty || email.trim().isEmpty || password.trim().isEmpty) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Missing Fields',
+        message: 'Please fill in all fields to create an account.',
+        type: AppErrorType.validation,
+      ));
+      return;
+    }
+
+    if (password.length < 6) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Weak Password',
+        message: 'Password must be at least 6 characters long.',
+        type: AppErrorType.validation,
+      ));
+      return;
+    }
+
     isLoading.value = true;
     try {
       final response = await _connect.post('$baseUrl/signup', {
-        'username': username,
-        'email': email,
+        'username': username.trim(),
+        'email': email.trim(),
         'password': password,
-      });
+      }).timeout(const Duration(seconds: 20));
 
       isLoading.value = false;
 
@@ -129,32 +144,18 @@ class AuthController extends GetxController {
         final data = response.body;
         await _saveSession(data);
         Get.offAll(() => const HomeScreen());
-        Get.snackbar(
-          "Success",
-          "Account created!",
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        ApiErrorHandler.showSuccess("Success", "Account created!");
       } else {
-        final message =
-            (response.body is Map && response.body['message'] != null)
-            ? response.body['message']
-            : "Signup failed (Status: ${response.statusCode})";
-        Get.snackbar(
-          "Error",
-          message,
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
         );
+        ApiErrorHandler.showError(error);
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar(
-        "Error",
-        "Connection failed: $e",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
     }
   }
 
@@ -174,7 +175,11 @@ class AuthController extends GetxController {
       final token = prefs.getString('auth_token');
 
       if (token == null) {
-        Get.snackbar("Error", "You need to be logged in");
+        ApiErrorHandler.showError(const AppError(
+          title: 'Not Logged In',
+          message: 'You need to be logged in to upload a profile picture.',
+          type: AppErrorType.auth,
+        ));
         isLoading.value = false;
         return;
       }
@@ -190,7 +195,7 @@ class AuthController extends GetxController {
         '$baseUrl/upload-profile-picture',
         form,
         headers: {'Authorization': 'Bearer $token'},
-      );
+      ).timeout(const Duration(seconds: 30));
 
       isLoading.value = false;
 
@@ -206,28 +211,18 @@ class AuthController extends GetxController {
           await _saveSession(updatedUser);
         }
 
-        Get.snackbar(
-          "Success",
-          "Profile picture updated!",
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-        );
+        ApiErrorHandler.showSuccess("Success", "Profile picture updated!");
       } else {
-        Get.snackbar(
-          "Error",
-          "Failed to upload image",
-          backgroundColor: Colors.red,
-          colorText: Colors.white,
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
         );
+        ApiErrorHandler.showError(error);
       }
     } catch (e) {
       isLoading.value = false;
-      Get.snackbar(
-        "Error",
-        "Upload failed: $e",
-        backgroundColor: Colors.red,
-        colorText: Colors.white,
-      );
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
     }
   }
 

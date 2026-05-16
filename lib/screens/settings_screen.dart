@@ -8,6 +8,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import '../widgets/settings_tile.dart';
 import '../widgets/settings_group.dart';
 import 'edit_profile_screen.dart';
+import 'ar_settings_screen.dart';
+import 'gen_settings_screen.dart';
+import 'info_screens.dart';
+import '../controllers/settings_controller.dart';
+import '../controllers/project_controller.dart';
+import '../controllers/catalog_controller.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -15,9 +21,10 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final AuthController _authController = Get.find<AuthController>();
+    final SettingsController _settingsController = Get.find<SettingsController>();
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'Settings',
@@ -32,7 +39,13 @@ class SettingsScreen extends StatelessWidget {
             const SizedBox(height: 20),
             Obx(() {
               final user = _authController.currentUser.value;
-              return _buildProfileCard(context, user);
+              return Column(
+                children: [
+                  _buildProfileCard(context, user),
+                  const SizedBox(height: 16),
+                  _buildUserStats(context),
+                ],
+              );
             }),
             const SizedBox(height: 32),
 
@@ -43,11 +56,10 @@ class SettingsScreen extends StatelessWidget {
                   icon: Icons.person_outline,
                   title: 'Personal Information',
                   subtitle: 'Name, Email, Bio',
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const EditProfileScreen(),
-                    ),
+                  onTap: () => Get.to(
+                    () => const EditProfileScreen(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 500),
                   ),
                 ),
                 SettingsTile(
@@ -70,13 +82,24 @@ class SettingsScreen extends StatelessWidget {
                 SettingsTile(
                   icon: Icons.view_in_ar,
                   title: 'AR Core Settings',
-                  onTap: () {},
+                  subtitle: 'Plane detection, lighting, etc.',
+                  onTap: () => Get.to(
+                    () => const ArSettingsScreen(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 500),
+                  ),
                 ),
                 SettingsTile(
-                  icon: Icons.cloud_upload_outlined,
-                  title: 'Cloud Sync',
-                  onTap: () {},
+                  icon: Icons.threed_rotation,
+                  title: '2D to 3D Settings',
+                  subtitle: 'Resolution, quality, auto-scale',
+                  onTap: () => Get.to(
+                    () => const GenSettingsScreen(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 500),
+                  ),
                 ),
+                Obx(() => _buildThemeToggle(_settingsController)),
                 SettingsTile(
                   icon: Icons.language_outlined,
                   title: 'Language',
@@ -93,12 +116,20 @@ class SettingsScreen extends StatelessWidget {
                 SettingsTile(
                   icon: Icons.help_outline,
                   title: 'Help Center',
-                  onTap: () {},
+                  onTap: () => Get.to(
+                    () => const HelpCenterScreen(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 500),
+                  ),
                 ),
                 SettingsTile(
                   icon: Icons.info_outline,
                   title: 'About Decor AI',
-                  onTap: () {},
+                  onTap: () => Get.to(
+                    () => const AboutScreen(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 500),
+                  ),
                 ),
               ],
             ),
@@ -120,12 +151,70 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildUserStats(BuildContext context) {
+    // We try to find controllers, if they are not initialized yet, we show placeholders
+    int projectCount = 0;
+    int furnitureCount = 0;
+
+    try {
+      projectCount = Get.find<ProjectController>().projects.length;
+    } catch (_) {}
+
+    try {
+      furnitureCount = Get.find<CatalogController>().furnitureItems.length;
+    } catch (_) {}
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          _buildStatItem(context, 'Projects', projectCount.toString(), Icons.folder_open),
+          const SizedBox(width: 12),
+          _buildStatItem(context, 'Assets', furnitureCount.toString(), Icons.chair_outlined),
+          const SizedBox(width: 12),
+          _buildStatItem(context, 'AR Views', '24', Icons.visibility_outlined),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(BuildContext context, String label, String value, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark 
+                ? Colors.white10 
+                : Colors.grey.shade100,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppTheme.primaryBlue, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            Text(
+              label,
+              style: const TextStyle(color: Colors.grey, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildProfileCard(BuildContext context, Map<String, dynamic>? user) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
@@ -142,7 +231,9 @@ class SettingsScreen extends StatelessWidget {
             height: 70,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.grey.shade300,
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.grey.shade800 
+                  : Colors.grey.shade300,
             ),
             child:
                 (user?['profilePicture'] != null &&
@@ -202,15 +293,41 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           IconButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const EditProfileScreen(),
-              ),
+            onPressed: () => Get.to(
+              () => const EditProfileScreen(),
+              transition: Transition.fadeIn,
+              duration: const Duration(milliseconds: 500),
             ),
             icon: const Icon(Icons.edit_outlined, color: Colors.grey, size: 20),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildThemeToggle(SettingsController controller) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.orange.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(
+          controller.isDarkMode.value ? Icons.dark_mode : Icons.light_mode,
+          color: Colors.orange,
+          size: 22,
+        ),
+      ),
+      title: const Text(
+        'Dark Mode',
+        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+      ),
+      trailing: Switch(
+        value: controller.isDarkMode.value,
+        onChanged: (val) => controller.toggleDarkMode(val),
+        activeColor: AppTheme.primaryBlue,
       ),
     );
   }

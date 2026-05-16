@@ -18,13 +18,13 @@ class ProjectsScreen extends StatefulWidget {
 class _ProjectsScreenState extends State<ProjectsScreen> {
   // Use Get.put to make it available (or find if already put in Home/Binding)
   // For now, put here to be safe as lazy singleton
-  final ProjectController _projectController = Get.put(ProjectController());
+  final ProjectController _projectController = Get.find<ProjectController>();
   String _selectedCategory = 'All';
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'My Projects',
@@ -91,7 +91,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       floatingActionButton: FloatingActionButton(
         heroTag: 'projects_fab',
         onPressed: () async {
-          await Get.to(() => const CreateProjectScreen());
+          await Get.to(
+            () => const CreateProjectScreen(),
+            transition: Transition.fadeIn,
+            duration: const Duration(milliseconds: 500),
+          );
           // ProjectController updates its list automatically if we called fetch/save there
           // But CreateProjectScreen navigates to ArViewScreen, which Saves.
           // When returning from ArViewScreen (Save), we might need to refresh if not using a global single stream.
@@ -119,7 +123,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryBlue : Colors.white,
+                color: isSelected ? AppTheme.primaryBlue : Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
@@ -183,7 +187,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         margin: const EdgeInsets.only(bottom: 16),
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
@@ -196,12 +200,16 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail Placeholder - In real app, generate screen capture
-            Container(
-              height: 150,
-              color: Colors.grey.shade100,
-              child: const Center(
-                child: Icon(Icons.view_in_ar, size: 48, color: Colors.black12),
+            Hero(
+              tag: 'project_ar_${project.id}',
+              child: Container(
+                height: 150,
+                color: Theme.of(context).brightness == Brightness.dark 
+                    ? Colors.grey.shade800 
+                    : Colors.grey.shade100,
+                child: const Center(
+                  child: Icon(Icons.view_in_ar, size: 48, color: Colors.black12),
+                ),
               ),
             ),
             Padding(

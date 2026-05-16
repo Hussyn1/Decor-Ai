@@ -22,6 +22,8 @@ import io.carius.lars.ar_flutter_plugin.Serialization.deserializeMatrix4
 import io.carius.lars.ar_flutter_plugin.Serialization.serializeAnchor
 import io.carius.lars.ar_flutter_plugin.Serialization.serializeHitResult
 import io.carius.lars.ar_flutter_plugin.Serialization.serializePose
+import io.carius.lars.ar_flutter_plugin.Serialization.serializePlane
+import io.carius.lars.ar_flutter_plugin.Serialization.serializeLightEstimate
 import io.flutter.FlutterInjector
 import io.flutter.embedding.engine.loader.FlutterLoader
 import io.flutter.plugin.common.BinaryMessenger
@@ -90,6 +92,11 @@ internal class AndroidARView(
 
     private lateinit var sceneUpdateListener: com.google.ar.sceneform.Scene.OnUpdateListener
     private lateinit var onNodeTapListener: com.google.ar.sceneform.Scene.OnPeekTouchListener
+
+    // Premium Features Data State
+    private var isRoomScanActive = false
+    private var lastRoomScanTime = 0L
+    private var lastLightEstimateTime = 0L
 
     // Method channel handlers
     private val onSessionMethodCall =
@@ -170,6 +177,49 @@ internal class AndroidARView(
                         }
                         "dispose" -> {
                             dispose()
+                        }
+                        "getSurfaceAtCenter" -> {
+                            val frame = arSceneView.arFrame
+                            if (frame != null) {
+                                val pixelX = (arSceneView.width / 2.0f)
+                                val pixelY = (arSceneView.height / 2.0f)
+                                val allHitResults = frame.hitTest(pixelX, pixelY)
+                                val planeHit = allHitResults.firstOrNull { it.trackable is Plane && (it.trackable as Plane).isPoseInPolygon(it.hitPose) }
+                                if (planeHit != null) {
+                                    val serialized = serializeHitResult(planeHit)
+                                    result.success(serialized)
+                                } else {
+                                    result.success(null)
+                                }
+                            } else {
+                                result.success(null)
+                            }
+                        }
+                        "getLightEstimate" -> {
+                            val frame = arSceneView.arFrame
+                            if (frame != null) {
+                                result.success(serializeLightEstimate(frame))
+                            } else {
+                                result.success(null)
+                            }
+                        }
+                        "getDetectedPlanes" -> {
+                            val session = arSceneView.session
+                            if (session != null) {
+                                val planes = session.getAllTrackables(Plane::class.java)
+                                val serializedPlanes = planes.map { serializePlane(it) }
+                                result.success(serializedPlanes)
+                            } else {
+                                result.success(ArrayList<HashMap<String, Any>>())
+                            }
+                        }
+                        "startRoomScan" -> {
+                            isRoomScanActive = true
+                            result.success(null)
+                        }
+                        "stopRoomScan" -> {
+                            isRoomScanActive = false
+                            result.success(null)
                         }
                         else -> {}
                     }
@@ -421,6 +471,7 @@ internal class AndroidARView(
                     val config = Config(session)
                     config.updateMode = Config.UpdateMode.LATEST_CAMERA_IMAGE
                     config.focusMode = Config.FocusMode.AUTO
+                    config.lightEstimationMode = Config.LightEstimationMode.AMBIENT_INTENSITY
                     session.configure(config)
                     arSceneView.setupSession(session)
                 }
@@ -680,6 +731,31 @@ internal class AndroidARView(
             transformationSystem.selectNode(null)
         }
 
+        // Room Scan & Light Estimation updates to Flutter
+        val currentTime = System.currentTimeMillis()
+        if (arSceneView.arFrame != null) {
+            val frame = arSceneView.arFrame!!
+            
+            // Light estimate (stream every 500ms)
+            if (currentTime - lastLightEstimateTime > 500) {
+                lastLightEstimateTime = currentTime
+                val lightData = serializeLightEstimate(frame)
+                if (lightData != null) {
+                    sessionManagerChannel.invokeMethod("onLightEstimate", lightData)
+                }
+            }
+
+            // Room Scan (stream every 1000ms if active)
+            if (isRoomScanActive && currentTime - lastRoomScanTime > 1000) {
+                lastRoomScanTime = currentTime
+                val session = arSceneView.session
+                if (session != null) {
+                    val planes = session.getAllTrackables(Plane::class.java)
+                    val serializedPlanes = planes.map { serializePlane(it) }
+                    sessionManagerChannel.invokeMethod("onPlanesDetected", serializedPlanes)
+                }
+            }
+        }
     }
 
     private fun addNode(dict_node: HashMap<String, Any>, dict_anchor: HashMap<String, Any>? = null): CompletableFuture<Boolean>{

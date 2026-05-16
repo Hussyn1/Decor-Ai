@@ -1,6 +1,7 @@
 // The code in this file is adapted from Oleksandr Leuschenko' ARKit Flutter Plugin (https://github.com/olexale/arkit_flutter_plugin)
 
 import 'package:ar_flutter_plugin/datatypes/hittest_result_types.dart';
+import 'package:ar_flutter_plugin/datatypes/surface_type.dart';
 import 'package:ar_flutter_plugin/utils/json_converters.dart';
 import 'package:json_annotation/json_annotation.dart';
 import 'package:vector_math/vector_math_64.dart';
@@ -10,8 +11,9 @@ class ARHitTestResult {
   ARHitTestResult(
     this.type,
     this.distance,
-    this.worldTransform,
-  );
+    this.worldTransform, {
+    this.surfaceType = SurfaceType.unknown,
+  });
 
   /// The type of the hit-test result.
   final ARHitTestResultType type;
@@ -23,6 +25,9 @@ class ARHitTestResult {
   /// relative to the world.
   final Matrix4 worldTransform;
 
+  /// The type of surface detected (if this plane intersects). 
+  final SurfaceType surfaceType;
+
   /// Instantiates am [ARHitTestResult] from a serialized ARHitTestResult
   static ARHitTestResult fromJson(Map<String, dynamic> json) =>
       _$ARHitTestResultFromJson(json);
@@ -33,10 +38,24 @@ class ARHitTestResult {
 
 /// Instantiates am [ARHitTestResult] from a serialized ARHitTestResult
 ARHitTestResult _$ARHitTestResultFromJson(Map<String, dynamic> json) {
+  SurfaceType parseSurfaceType(int? value) {
+    switch (value) {
+      case 0:
+        return SurfaceType.floor;
+      case 1:
+        return SurfaceType.ceiling;
+      case 2:
+        return SurfaceType.wall;
+      default:
+        return SurfaceType.unknown;
+    }
+  }
+
   return ARHitTestResult(
     const ARHitTestResultTypeConverter().fromJson(json['type'] as int),
     (json['distance'] as num).toDouble(),
     const MatrixConverter().fromJson(json['worldTransform'] as List),
+    surfaceType: parseSurfaceType(json['surfaceType'] as int?),
   );
 }
 

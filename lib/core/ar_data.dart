@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ar_flutter_plugin/datatypes/surface_type.dart';
 
 class ArData {
   ArData._();
@@ -45,6 +46,7 @@ class ArData {
       'style': 'Minimalist',
       'color': 'Grey',
       'dims': [0.6, 0.8, 0.6],
+      'surface': SurfaceType.floor,
     },
     {
       'id': 'f2',
@@ -59,6 +61,7 @@ class ArData {
       'style': 'Industrial',
       'color': 'Black',
       'dims': [0.3, 0.5, 0.3],
+      'surface': SurfaceType.floor,
     },
     {
       'id': 'f3',
@@ -73,6 +76,7 @@ class ArData {
       'style': 'Boutique',
       'color': 'Yellow',
       'dims': [0.2, 0.2, 0.2],
+      'surface': SurfaceType.floor,
     },
   ];
 }

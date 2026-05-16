@@ -4,6 +4,7 @@ import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
 import '../services/project_service.dart';
 import 'ar_view_screen.dart';
+import 'package:get/get.dart';
 
 class CreateProjectScreen extends StatefulWidget {
   const CreateProjectScreen({super.key});
@@ -36,7 +37,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text(
           'New Project',
@@ -147,12 +148,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                 );
 
                 // Navigate to AR View with this project
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ArViewScreen(project: newProject),
-                  ),
-                );
+                Get.off(() => ArViewScreen(project: newProject));
               },
             ),
           ],
@@ -181,7 +177,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade50,
+          color: isSelected ? AppTheme.primaryBlue : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade200,
@@ -217,10 +213,10 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: isSelected ? Colors.black87 : Colors.white,
+          color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Colors.black87 : Colors.grey.shade300,
+            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
           ),
         ),
         child: Center(

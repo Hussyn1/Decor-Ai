@@ -28,12 +28,12 @@ class SettingsTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: isDestructive 
               ? Colors.redAccent.withOpacity(0.1) 
-              : AppTheme.backgroundLight,
+              : Theme.of(context).scaffoldBackgroundColor,
           shape: BoxShape.circle,
         ),
         child: Icon(
           icon, 
-          color: isDestructive ? Colors.redAccent : (iconColor ?? Colors.black87), 
+          color: isDestructive ? Colors.redAccent : (iconColor ?? Theme.of(context).colorScheme.onSurface.withOpacity(0.8)), 
           size: 20
         ),
       ),
@@ -42,7 +42,7 @@ class SettingsTile extends StatelessWidget {
         style: TextStyle(
           fontWeight: FontWeight.w600, 
           fontSize: 16,
-          color: isDestructive ? Colors.redAccent : Colors.black87,
+          color: isDestructive ? Colors.redAccent : Theme.of(context).colorScheme.onSurface,
         )
       ),
       subtitle: subtitle != null 

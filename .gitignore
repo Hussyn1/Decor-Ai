@@ -77,3 +77,6 @@ lib/generated_plugin_registrant.dart
 **/__pycache__/
 **/*.venv/
 **/.env
+
+# Backend uploads
+backend_ai/static/uploads/

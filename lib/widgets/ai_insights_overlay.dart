@@ -9,7 +9,6 @@ import '../core/app_theme.dart';
 /// Now expanded/collapsed to be less intrusive.
 class AiInsightsOverlay extends StatefulWidget {
   final List<AiInsight> activeInsights;
-  final double totalBudget;
   final bool isAnalyzing;
   final int nodesCount;
   final VoidCallback? onAutoArrange;
@@ -19,7 +18,6 @@ class AiInsightsOverlay extends StatefulWidget {
   const AiInsightsOverlay({
     super.key,
     required this.activeInsights,
-    required this.totalBudget,
     required this.isAnalyzing,
     required this.nodesCount,
     this.onAutoArrange,
@@ -50,9 +48,6 @@ class _AiInsightsOverlayState extends State<AiInsightsOverlay> {
         crossAxisAlignment:
             CrossAxisAlignment.end, // Align to right for expanding
         children: [
-          // Budget Tracking (Always visible if items exist)
-          if (widget.nodesCount > 0) _buildBudgetTracker(),
-
           // AI Analyzing Indicator (Always visible when active)
           if (widget.isAnalyzing) _buildAnalyzingIndicator(),
 
@@ -116,47 +111,6 @@ class _AiInsightsOverlayState extends State<AiInsightsOverlay> {
                   .map((insight) => _buildInsightCard(insight)),
           ],
         ],
-      ),
-    );
-  }
-
-  Widget _buildBudgetTracker() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.7),
-          borderRadius: BorderRadius.circular(25),
-          border: Border.all(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.5),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(
-              Icons.account_balance_wallet,
-              color: AppTheme.primaryBlue,
-              size: 16,
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              "Est:",
-              style: TextStyle(color: Colors.white70, fontSize: 12),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              "\$${widget.totalBudget.toStringAsFixed(0)}",
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'package:http/http.dart' as http;
+import '../core/api_config.dart';
 
 /// Represents a single piece of furniture placed in the AR scene.
 class FurniturePlacement {
@@ -140,8 +141,7 @@ class Project {
 }
 
 class ProjectService {
-  final String baseUrl =
-      'http://192.168.100.8:5000/api/projects'; // Consistent with AuthController
+  String get baseUrl => ApiConfig.projectsEndpoint;
 
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();

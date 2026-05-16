@@ -11,13 +11,14 @@ class ModelViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1115),
+      backgroundColor: const Color(0xFFF5F7FA), // Light theme background
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F1115),
-        foregroundColor: Colors.white,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
+        elevation: 1,
         title: Text(
           title ?? '3D Preview',
-          style: const TextStyle(fontWeight: FontWeight.bold),
+          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
         ),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
@@ -39,12 +40,17 @@ class ModelViewerScreen extends StatelessWidget {
           // 3D Model Viewer
           Expanded(
             child: ModelViewer(
-              src: glbUrl,
+              src: (glbUrl.startsWith('/') || glbUrl.contains('Application Documents')) && !glbUrl.startsWith('file://')
+                  ? 'file://$glbUrl'
+                  : glbUrl,
               alt: '3D furniture model',
               ar: false,
               autoRotate: true,
               cameraControls: true,
-              backgroundColor: const Color(0xFF0F1115),
+              backgroundColor: const Color(0xFFEEEEEE),
+              shadowIntensity: 1.5,
+              exposure: 1.0,
+              environmentImage: 'neutral',
               autoRotateDelay: 0,
             ),
           ),

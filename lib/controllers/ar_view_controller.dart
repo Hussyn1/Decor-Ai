@@ -23,6 +23,13 @@ class ArViewController extends GetxController {
   /// Currently selected node for manipulation
   final Rx<ARNode?> selectedNode = Rx<ARNode?>(null);
 
+  /// Global lock to prevent multiple simultaneous placements across sessions
+  final RxBool isPlacementInProgress = false.obs;
+
+  /// Tracks the last placed world position to prevent "ghost" stacking
+  final Rx<vector.Vector3?> lastPlacedPosition = Rx<vector.Vector3?>(null);
+  final Rx<DateTime?> lastPlacedTime = Rx<DateTime?>(null);
+
   /// World position tracking map for accurate collision detection
   /// Maps node name to its world-space position
   final worldPositions = <String, vector.Vector3>{}.obs;
@@ -123,6 +130,9 @@ class ArViewController extends GetxController {
     isLocked.value = false;
     isRestored.value = false;
     isScanning.value = false;
+    isPlacementInProgress.value = false;
+    lastPlacedPosition.value = null;
+    lastPlacedTime.value = null;
     undoStack.clear();
     redoStack.clear();
     placementState.value = const ArOperationState();

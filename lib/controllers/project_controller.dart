@@ -1,5 +1,6 @@
 import 'package:get/get.dart';
 import '../services/project_service.dart';
+import '../core/api_error_handler.dart';
 
 class ProjectController extends GetxController {
   final ProjectService _projectService = ProjectService();
@@ -19,7 +20,8 @@ class ProjectController extends GetxController {
       var loadedProjects = await _projectService.loadProjects();
       projects.assignAll(loadedProjects);
     } catch (e) {
-      Get.snackbar("Error", "Failed to load projects: $e");
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
     } finally {
       isLoading.value = false;
     }
@@ -38,9 +40,10 @@ class ProjectController extends GetxController {
         projects.insert(0, project);
       }
       
-      Get.snackbar("Success", "Project saved successfully!");
+      ApiErrorHandler.showSuccess("Success", "Project saved successfully!");
     } catch (e) {
-      Get.snackbar("Error", "Failed to save project: $e");
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
     }
   }
 
@@ -48,8 +51,10 @@ class ProjectController extends GetxController {
     try {
       await _projectService.deleteProject(id);
       projects.removeWhere((p) => p.id == id);
+      ApiErrorHandler.showSuccess("Deleted", "Project removed.");
     } catch (e) {
-      Get.snackbar("Error", "Failed to delete project: $e");
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
     }
   }
 }

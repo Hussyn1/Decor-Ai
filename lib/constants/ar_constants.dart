@@ -1,9 +1,5 @@
-/// AR Configuration Constants
-///
-/// Centralized location for all AR-related magic numbers and configuration values.
-/// This improves maintainability and makes the codebase more readable.
+
 class ArConstants {
-  // Prevent instantiation
   ArConstants._();
 
   // ===== COLLISION & PHYSICS =====

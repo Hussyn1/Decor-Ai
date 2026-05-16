@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:ar_flutter_plugin/ar_flutter_plugin.dart';
 import 'package:ar_flutter_plugin/datatypes/config_planedetection.dart';
 import 'package:ar_flutter_plugin/datatypes/hittest_result_types.dart';
@@ -12,21 +13,27 @@ import 'package:ar_flutter_plugin/models/ar_hittest_result.dart';
 import 'package:ar_flutter_plugin/models/ar_node.dart';
 import '../models/ar_operation_state.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'dart:async'; // Add this for Completer
 
-import '../core/debouncer.dart';
 import '../core/app_theme.dart';
-import '../services/ai_recommendation_service.dart';
+
 import '../services/project_service.dart';
 import 'package:get/get.dart';
 import '../controllers/project_controller.dart';
 import '../widgets/ar_control_panel.dart';
 import '../widgets/furniture_carousel.dart';
-import '../widgets/ai_insights_overlay.dart';
+
+import '../widgets/light_estimation_badge.dart';
+import 'package:ar_flutter_plugin/datatypes/surface_type.dart';
+import '../services/tripoSr.dart';
+import 'package:ar_flutter_plugin/models/light_estimate.dart';
 import '../controllers/ar_view_controller.dart';
 import '../services/ar_core_bridge.dart';
 import '../core/ar_data.dart';
+import '../controllers/catalog_controller.dart';
+import 'dart:io';
 
 class ArViewScreen extends StatefulWidget {
   final Project? project;
@@ -43,11 +50,14 @@ class _ArViewScreenState extends State<ArViewScreen> {
   ARObjectManager? arObjectManager;
   final ProjectController _projectController = Get.put(ProjectController());
   final ArViewController _arController = Get.put(ArViewController());
+  final CatalogController _catalogController = Get.find<CatalogController>();
   ARAnchorManager? arAnchorManager;
+  final _centerSurfaceNotifier = ValueNotifier<SurfaceType>(
+    SurfaceType.unknown,
+  );
   ARLocationManager? arLocationManager;
 
   final ArCoreBridge _arBridge = ArCoreBridge();
-  final Debouncer _aiDebouncer = Debouncer(milliseconds: 1500);
 
   // Advanced State
   // Scaling Logic Tracking
@@ -65,24 +75,27 @@ class _ArViewScreenState extends State<ArViewScreen> {
   final Map<String, dynamic> _pendingDownloads =
       {}; // Map<String, Completer<ARAnchor>>
 
-  List<Map<String, dynamic>> _furniture = List.from(
-    ArData.furniture,
-  ); // Make mutable copy
-  final List<Map<String, dynamic>> _materialSwatches = ArData.materialSwatches;
-  int _selectedColorIndex = 0;
+  // Replaced with CatalogController list
+  List<Map<String, dynamic>> get _furniture =>
+      _catalogController.furnitureItems;
 
-  final AiRecommendationService _aiService = AiRecommendationService();
-  List<AiInsight> _activeInsights = [];
-  bool _isAnalyzing = false;
   bool _useLiDAR = false;
   bool _usePhysics = false;
   bool _isLiDARSupported = false;
   bool _isProcessingTap =
       false; // Prevents multiple rapid taps or phantom events
   bool _isLoadingItems = false; // Guard for project restoration
+  bool _isModelCaching = false; // ✅ Track caching status
+  String? _generatedModelUri; // ✅ Stores the specific generated local filename
+  int _lastTapTimestamp = 0; // For temporal debouncing
 
   // Unique session ID to track logs for this specific instance
   late String _sessionId;
+
+  // New Augmented Intelligence State
+  Timer? _centerHitTimer;
+  SurfaceType _currentCenterSurface = SurfaceType.unknown;
+  LightEstimate? _currentLightEstimate;
 
   // Helper getters for controller state (for gradual migration)
   List<ARNode> get nodes => _arController.nodes;
@@ -126,22 +139,14 @@ class _ArViewScreenState extends State<ArViewScreen> {
     _isScanning = false;
     _arController.clearScene();
 
-    // Inject custom model if provided
+    // Auto-select the first item if we just generated a model
     if (widget.initialModelUrl != null) {
-      print(
-        "BREADCRUMB: Injecting custom generated model: ${widget.initialModelUrl}",
-      );
-      _furniture.insert(0, {
-        "name": "AI Generated Model",
-        "image":
-            "https://cdn-icons-png.flaticon.com/512/616/616490.png", // Generic icon
-        "model": widget.initialModelUrl,
-        "description": "Your custom AI generated furniture",
-        "scale": 1.0, // Default scale
-      });
-      // Auto-select the new item
       _selectedFurnitureIndex = 0;
+      _isModelCaching = true;
+      _preCacheModel(widget.initialModelUrl!);
     }
+
+    _checkLiDARSupport(); // ✅ Call once on init instead of every tap
 
     // Initialize project
     if (widget.project != null) {
@@ -190,20 +195,53 @@ class _ArViewScreenState extends State<ArViewScreen> {
     if (mounted) setState(() {});
   }
 
+  Future<void> _preCacheModel(String url) async {
+    print("[AR-LOG] Pre-caching model from: $url");
+    setState(() => _isModelCaching = true);
+
+    try {
+      final result = await FurnitureAiService.downloadToCache(url);
+
+      if (!mounted) return;
+
+      if (result != url) {
+        final filename = result.contains('/') ? result.split('/').last : result;
+        print("[AR-LOG] Model cached as filename: $filename");
+        setState(() {
+          _generatedModelUri = filename; // ✅ filename ONLY
+          _isModelCaching = false;
+        });
+      } else {
+        print("[AR-LOG] Cache failed, using CDN URL: $url");
+        setState(() {
+          _generatedModelUri = url;
+          _isModelCaching = false;
+        });
+      }
+    } catch (e) {
+      print("[AR-LOG] Pre-cache error: $e");
+      if (mounted)
+        setState(() {
+          _generatedModelUri = url;
+          _isModelCaching = false;
+        });
+    }
+  }
+
   @override
   void dispose() {
     print("BREADCRUMB: ArViewScreen DISPOSING - Cleaning up resources");
+    _centerHitTimer?.cancel();
     // Dispose AI debouncer
-    _aiDebouncer.dispose();
 
     // Controller cleanup (handles nodes, anchors, world positions, etc.)
     _arController.onClose();
 
     // Clear AI insights
-    _activeInsights.clear();
 
     // Dispose AR session manager
     arSessionManager?.dispose();
+    _centerSurfaceNotifier.dispose();
 
     super.dispose();
   }
@@ -219,6 +257,43 @@ class _ArViewScreenState extends State<ArViewScreen> {
             onARViewCreated: onARViewCreated,
             planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
           ),
+
+          if (_isModelCaching)
+            Positioned(
+              bottom: 180,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black87,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        "Preparing model for AR...",
+                        style: TextStyle(color: Colors.white, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
           // 2. Transparent Interaction Layer for Passive Scaling
           if (selectedNode != null && !isLocked)
@@ -268,152 +343,119 @@ class _ArViewScreenState extends State<ArViewScreen> {
             top: 60,
             left: 20,
             right: 20,
-            child: Row(
-              children: [
-                _buildCircleButton(
-                  Icons.arrow_back_ios_new,
-                  () => Navigator.pop(context),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    _currentProject.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+            child: RepaintBoundary(
+              child: Container(
+                // ✅ Removed BackdropFilter & ClipRRect for performance
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0x1AFFFFFF), // white 10% opacity
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(
+                    color: const Color(0x33FFFFFF), // white 20% opacity
+                    width: 1,
                   ),
                 ),
-                const Spacer(),
-                _buildCircleButton(
-                  Icons.save_rounded,
-                  _saveProject,
-                  color: AppTheme.primaryBlue,
+                child: Row(
+                  children: [
+                    Hero(
+                      tag: 'project_ar_${_currentProject.id}',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: _buildCircleButton(
+                          Icons.arrow_back_ios_new,
+                          () => Navigator.pop(context),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        _currentProject.name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    _buildCircleButton(
+                      Icons.save_rounded,
+                      _saveProject,
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.5),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildCircleButton(
+                      Icons.share,
+                      _shareProject,
+                      color: Colors.greenAccent.withValues(alpha: 0.3),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                _buildCircleButton(
-                  Icons.share,
-                  _shareProject,
-                  color: Colors.greenAccent.withOpacity(0.8),
-                ),
-                const SizedBox(width: 12),
-                if (_furniture.length != ArData.furniture.length)
-                  _buildCircleButton(Icons.filter_list_off, () {
-                    setState(() {
-                      _furniture = List.from(ArData.furniture);
-                      _selectedFurnitureIndex = 0;
-                    });
-                    _showStatus("Show all furniture");
-                  }, color: Colors.orangeAccent),
-                const SizedBox(width: 12),
-                _buildCircleButton(Icons.settings, () {}),
-              ],
+              ),
             ),
           ),
 
           // Selection Indicator & Controls
-          ArControlPanel(
-            selectedNode: selectedNode,
-            isLocked: isLocked,
-            showPlanes: _showPlanes,
-            useLiDAR: _useLiDAR,
-            usePhysics: _usePhysics,
-            canUndo: undoStack.isNotEmpty,
-            canRedo: redoStack.isNotEmpty,
-            isLiDARSupported: _isLiDARSupported,
-            onToggleLock: () => setState(() => isLocked = !isLocked),
-            onSnapToWall: _snapToNearestWall,
-            onUndo: _performUndo,
-            onRedo: _performRedo,
-            onTogglePlanes: _togglePlanes,
-            onToggleLiDAR: _toggleLiDAR,
-            onTogglePhysics: _togglePhysics,
+          // Selection Indicator & Controls
+          Obx(
+            () => ArControlPanel(
+              selectedNode: selectedNode,
+              isLocked: isLocked,
+              showPlanes: _showPlanes,
+              useLiDAR: _useLiDAR,
+              usePhysics: _usePhysics,
+              canUndo: undoStack.isNotEmpty,
+              canRedo: redoStack.isNotEmpty,
+              isLiDARSupported: _isLiDARSupported,
+              onToggleLock: () => setState(() => isLocked = !isLocked),
+              onUndo: _performUndo,
+              onRedo: _performRedo,
+              onToggleLiDAR: _toggleLiDAR,
+              onTogglePhysics: _togglePhysics,
+            ),
           ),
 
           // Remove Button (Visible if nodes exist)
-          if (nodes.isNotEmpty)
-            Positioned(
-              right: 20,
-              bottom: 220,
-              child: _buildSmallCircleButton(
-                Icons.delete,
-                color: Colors.redAccent.withOpacity(0.8),
-                onTap: removeAllAnchors,
-              ),
-            ),
+          Obx(
+            () => nodes.isEmpty
+                ? const SizedBox.shrink()
+                : Positioned(
+                    right: 20,
+                    bottom: 220,
+                    child: _buildSmallCircleButton(
+                      Icons.delete,
+                      color: Colors.redAccent.withValues(alpha: 0.8),
+                      onTap: removeAllAnchors,
+                    ),
+                  ),
+          ),
 
           // Camera Controls
           Positioned(
-            bottom: 110,
+            bottom: 120,
             left: 0,
             right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildCircleButton(Icons.photo_library, () {}),
+                _buildGlassCircleButton(Icons.photo_library, () {}),
                 const SizedBox(width: 24),
                 _buildCaptureButton(),
                 const SizedBox(width: 24),
-                _buildCircleButton(Icons.view_in_ar, () {}),
+                _buildGlassCircleButton(Icons.view_in_ar, () {}),
               ],
             ),
           ),
 
-          // Material Swapper (Visible if object selected)
-          if (selectedNode != null)
-            Positioned(
-              bottom: 220, // Moved up to avoid overlap with Camera Controls
-              left: 40,
-              right: 80,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.palette, color: Colors.white, size: 16),
-                      const SizedBox(width: 12),
-                      ...List.generate(
-                        _materialSwatches.length,
-                        (index) => _buildSwatchItem(index),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-
           // Furniture Carousel
-          FurnitureCarousel(
-            furniture: _furniture,
-            selectedIndex: _selectedFurnitureIndex,
-            onFurnitureSelected: (index) {
-              setState(() {
-                _selectedFurnitureIndex = index;
-              });
-            },
-          ),
-
-          // AI Insight Overlay (Must be last to render on top)
-          RepaintBoundary(
-            child: AiInsightsOverlay(
-              activeInsights: _activeInsights,
-              totalBudget: _calculateTotalBudget(),
-              isAnalyzing: _isAnalyzing,
-              nodesCount: nodes.length,
-              onMagicArrange: _magicArrange,
-              onDismissInsight: (insight) {
+          Obx(
+            () => FurnitureCarousel(
+              furniture: _furniture,
+              selectedIndex: _selectedFurnitureIndex,
+              onFurnitureSelected: (index) {
                 setState(() {
-                  _activeInsights.remove(insight);
+                  _selectedFurnitureIndex = index;
                 });
               },
             ),
@@ -433,9 +475,52 @@ class _ArViewScreenState extends State<ArViewScreen> {
             }
             return const SizedBox.shrink();
           }),
+
+          // Smart Crosshair
+          if (!isLocked && selectedNode == null)
+            Center(
+              child: ValueListenableBuilder<SurfaceType>(
+                valueListenable: _centerSurfaceNotifier,
+                builder: (_, surface, __) => Container(
+                  width: 24,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: _getCrosshairColorFor(surface),
+                      width: 2,
+                    ),
+                    color: _getCrosshairColorFor(
+                      surface,
+                    ).withValues(alpha: 0.3),
+                  ),
+                ),
+              ),
+            ),
+
+          // Lighting Estimation Warning
+          if (_currentLightEstimate != null &&
+              _currentLightEstimate!.pixelIntensity < 0.2)
+            Positioned(
+              top: 140, // Below header
+              left: 0,
+              right: 0,
+              child: Center(
+                child: LightEstimationBadge(estimate: _currentLightEstimate!),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Color _getCrosshairColorFor(SurfaceType surface) {
+    SurfaceType expected =
+        _furniture[_selectedFurnitureIndex]['surface'] as SurfaceType? ??
+        SurfaceType.floor;
+    if (surface == SurfaceType.unknown) return Colors.white;
+    if (surface == expected) return Colors.greenAccent;
+    return Colors.redAccent;
   }
 
   void onARViewCreated(
@@ -470,6 +555,50 @@ class _ArViewScreenState extends State<ArViewScreen> {
     );
     this.arObjectManager!.onInitialize();
     print("BREADCRUMB: AR Managers Initialized");
+
+    // Connect Lighting Streaming (throttled to avoid excessive setState)
+    this.arSessionManager!.onLightEstimate = (LightEstimate estimate) {
+      if (mounted) {
+        // Only update state if lighting changed significantly (avoid constant rebuilds)
+        final oldIntensity = _currentLightEstimate?.pixelIntensity ?? 0;
+        final newIntensity = estimate.pixelIntensity;
+        final crossed02Threshold = (oldIntensity < 0.2) != (newIntensity < 0.2);
+        if (crossed02Threshold) {
+          setState(() {
+            _currentLightEstimate = estimate;
+          });
+        } else {
+          _currentLightEstimate = estimate; // Update silently without rebuild
+        }
+      }
+    };
+
+    // Center Crosshair Hit-Test Loop (throttled to 500ms to reduce rebuilds)
+    _centerHitTimer = Timer.periodic(const Duration(milliseconds: 500), (
+      timer,
+    ) async {
+      if (!mounted || this.arSessionManager == null || isLocked) return;
+      try {
+        final hitTests = await this.arSessionManager!.performHitTest(0.5, 0.5);
+        SurfaceType centerSurface = SurfaceType.unknown;
+        if (hitTests.isNotEmpty) {
+          final validHit = hitTests.firstWhere(
+            (hit) => hit.type == ARHitTestResultType.plane,
+            orElse: () => hitTests.first,
+          );
+          centerSurface = validHit.surfaceType;
+        }
+        if (_currentCenterSurface != centerSurface) {
+          if (centerSurface != SurfaceType.unknown) {
+            HapticFeedback.lightImpact();
+          }
+          _currentCenterSurface = centerSurface;
+          _centerSurfaceNotifier.value = centerSurface;
+        }
+      } catch (e) {
+        // ignore
+      }
+    });
 
     _checkCloudSupport();
 
@@ -551,107 +680,192 @@ class _ArViewScreenState extends State<ArViewScreen> {
 
   // --- PLACEMENT & INTERACTION HANDLERS ---
   Future<void> onPlaneOrPointTap(List<ARHitTestResult> hitTestResults) async {
-    if (_isProcessingTap) {
+    if (_isModelCaching) {
+      _showStatus("Model is still loading, please wait...");
+      return;
+    }
+
+    final now = DateTime.now();
+    bool isGloballyLocked = _arController.isPlacementInProgress.value;
+
+    // Check temporal debounce and global lock
+    if (_isProcessingTap ||
+        isGloballyLocked ||
+        (_arController.lastPlacedTime.value != null &&
+            now.difference(_arController.lastPlacedTime.value!).inMilliseconds <
+                500)) {
       print(
-        "BREADCRUMB [$_sessionId]: Tap IGNORED - Already processing a tap.",
+        "BREADCRUMB [$_sessionId]: Tap IGNORED - ${(_isProcessingTap || isGloballyLocked) ? "Locked" : "Debounced"}",
       );
       return;
     }
+
     _isProcessingTap = true;
+    _arController.isPlacementInProgress.value = true;
 
-    print(
-      "BREADCRUMB [$_sessionId]: onPlaneOrPointTap START - Hits: ${hitTestResults.length} | Restored: $_isRestored",
-    );
-
-    if (hitTestResults.isEmpty || isLocked) {
-      _isProcessingTap = false;
-      return;
-    }
-
-    // If we haven't restored the design yet, this tap is for grounding
-    if (!_isRestored && widget.project != null) {
-      await _groundDesign(hitTestResults.first);
-      _isProcessingTap = false;
-      return;
-    }
-
-    // Filter for horizontal planes
-    ARHitTestResult? horizontalHit;
-    for (var hit in hitTestResults) {
-      if (hit.type == ARHitTestResultType.plane) {
-        if (hit.worldTransform.entry(1, 1).abs() > 0.7) {
-          horizontalHit = hit;
-          break;
-        }
-      }
-    }
-
-    if (horizontalHit == null) {
-      _showStatus("Please tap on a flat surface.");
-      return;
-    }
-
-    // Collision Check
-    vector.Vector3 potentialPos = vector.Vector3(
-      horizontalHit.worldTransform.entry(0, 3),
-      horizontalHit.worldTransform.entry(1, 3),
-      horizontalHit.worldTransform.entry(2, 3),
-    );
-
-    if (_checkCollision(potentialPos, null)) {
-      _showStatus("Cannot place here: Too close to existing furniture!");
-      return;
-    }
-
-    var newAnchor = ARPlaneAnchor(transformation: horizontalHit.worldTransform);
-    bool? didAddAnchor = await arAnchorManager!.addAnchor(newAnchor);
-    if (didAddAnchor == true) {
-      anchors.add(newAnchor);
-
-      // Start loading state
-      _arController.placementState.value = ArOperationState.loading();
-
-      var newNode = ARNode(
-        type: NodeType.webGLB,
-        uri: _furniture[_selectedFurnitureIndex]['model']!,
-        scale: vector.Vector3(_currentScale, _currentScale, _currentScale),
-        position: vector.Vector3(0, 0, 0),
-        rotation: vector.Vector4(1, 0, 0, 0),
-        name: "furniture_${DateTime.now().millisecondsSinceEpoch}",
+    try {
+      print(
+        "BREADCRUMB [$_sessionId]: onPlaneOrPointTap START - Hits: ${hitTestResults.length} | Restored: $_isRestored",
       );
 
-      bool? didAddNodeToAnchor = await arObjectManager!.addNode(
-        newNode,
-        planeAnchor: newAnchor,
-      );
-      if (didAddNodeToAnchor == true) {
-        print(
-          "BREADCRUMB [$_sessionId]: Node placement SUCCESS: ${newNode.name}",
-        );
-        nodes.add(newNode);
-        _nodeAnchors[newNode.name] = newAnchor; // Track anchor
-        _worldPositions[newNode.name] = potentialPos; // Track world pos
-        _saveStateToUndo();
-
-        // Success state
-        _arController.placementState.value = ArOperationState.success();
-
-        _aiDebouncer.run(
-          () => _runAiAnalysis(),
-        ); // Trigger AI check after placement
-        if (mounted) {
-          setState(() => selectedNode = newNode);
-        }
-      } else {
-        // Error handling
-        _arController.placementState.value = ArOperationState.error(
-          "Failed to place object",
-        );
-        _showStatus("Failed to place object");
+      if (hitTestResults.isEmpty || isLocked) {
+        _isProcessingTap = false;
+        return;
       }
+
+      // If we haven't restored the design yet, this tap is for grounding
+      if (!_isRestored && widget.project != null) {
+        _isRestored = true; // Set IMMEDIATELY to block other grounding taps
+        await _groundDesign(hitTestResults.first);
+        _isProcessingTap = false;
+        return;
+      }
+
+      // Context-Aware Placement Restriction
+      SurfaceType expectedSurface =
+          _furniture[_selectedFurnitureIndex]['surface'] as SurfaceType? ??
+          SurfaceType.floor;
+
+      ARHitTestResult? validHit;
+      for (var hit in hitTestResults) {
+        if (hit.type == ARHitTestResultType.plane) {
+          // If native surface type works:
+          if (hit.surfaceType == expectedSurface) {
+            validHit = hit;
+            break;
+          } else if (hit.surfaceType == SurfaceType.unknown) {
+            // Fallback logic by orientation
+            if (expectedSurface == SurfaceType.floor &&
+                hit.worldTransform.entry(1, 1).abs() > 0.7) {
+              validHit = hit;
+              break;
+            } else if (expectedSurface == SurfaceType.wall &&
+                hit.worldTransform.entry(1, 1).abs() < 0.3) {
+              validHit = hit;
+              break;
+            }
+          }
+        }
+      }
+
+      if (validHit == null) {
+        _showStatus(
+          "Please place on a valid surface (Expected: ${expectedSurface.name.toUpperCase()}).",
+        );
+        _isProcessingTap = false;
+        _arController.isPlacementInProgress.value = false;
+        return;
+      }
+
+      // 2. Spatial Idempotency Check (The "Ghost Slayer")
+      // If we've already placed something at this EXACT coordinate recently, ignore.
+      if (_arController.lastPlacedPosition.value != null) {
+        final lastPos = _arController.lastPlacedPosition.value!;
+        final currentPos = validHit.worldTransform.getTranslation();
+        final dist = (lastPos - currentPos).length;
+
+        if (dist < 0.05) {
+          // 5cm epsilon
+          print(
+            "BREADCRUMB [$_sessionId]: Tap IGNORED - Spatial Duplicate detected at $currentPos",
+          );
+          _isProcessingTap = false;
+          _arController.isPlacementInProgress.value = false;
+          return;
+        }
+      }
+
+      // Collision Check
+      vector.Vector3 potentialPos = vector.Vector3(
+        validHit.worldTransform.entry(0, 3),
+        validHit.worldTransform.entry(1, 3),
+        validHit.worldTransform.entry(2, 3),
+      );
+
+      if (_checkCollision(potentialPos, null)) {
+        _showStatus("Cannot place here: Too close to existing furniture!");
+        _isProcessingTap = false;
+        return;
+      }
+
+      var newAnchor = ARPlaneAnchor(transformation: validHit.worldTransform);
+      bool? didAddAnchor = await arAnchorManager!.addAnchor(newAnchor);
+      if (didAddAnchor == true) {
+        anchors.add(newAnchor);
+
+        // Start loading state
+        _arController.placementState.value = ArOperationState.loading();
+
+        // Context-Aware Placement Logic
+        String modelUri;
+        bool isLocalModel;
+
+        if (_selectedFurnitureIndex == 0 && _generatedModelUri != null) {
+          // Generated model — use our dedicated cached field
+          modelUri = _generatedModelUri!;
+          isLocalModel = !modelUri.startsWith('http');
+        } else {
+          // Catalog model — use the catalog as normal
+          modelUri = _furniture[_selectedFurnitureIndex]['model']! as String;
+          isLocalModel = !modelUri.startsWith('http');
+        }
+
+        // CRITICAL: AR plugin expects ONLY the filename for fileSystemAppFolderGLB
+        final safeUri = (isLocalModel && modelUri.contains('/'))
+            ? modelUri.split('/').last
+            : modelUri;
+
+        var newNode = ARNode(
+          type: isLocalModel
+              ? NodeType.fileSystemAppFolderGLB
+              : NodeType.webGLB,
+          uri: safeUri,
+          scale: vector.Vector3(_currentScale, _currentScale, _currentScale),
+          position: vector.Vector3(0, 0, 0),
+          rotation: vector.Vector4(1, 0, 0, 0),
+          name: "furniture_${DateTime.now().millisecondsSinceEpoch}",
+        );
+
+        bool? didAddNodeToAnchor = await arObjectManager!.addNode(
+          newNode,
+          planeAnchor: newAnchor,
+        );
+        if (didAddNodeToAnchor == true) {
+          print(
+            "BREADCRUMB [$_sessionId]: Node placement SUCCESS: ${newNode.name}",
+          );
+          nodes.add(newNode);
+          _nodeAnchors[newNode.name] = newAnchor; // Track anchor
+          _worldPositions[newNode.name] = potentialPos; // Track world pos
+          Future.microtask(
+            () => HapticFeedback.mediumImpact(),
+          ); // ✅ Async haptics
+          _saveStateToUndo();
+
+          // Success state
+          _arController.placementState.value = ArOperationState.success();
+
+          _arController.lastPlacedPosition.value = validHit.worldTransform
+              .getTranslation();
+          _arController.lastPlacedTime.value = DateTime.now();
+
+          // ✅ No setState needed - Rx handles this
+          selectedNode = newNode;
+        } else {
+          // Error handling
+          _arController.placementState.value = ArOperationState.error(
+            "Failed to place object",
+          );
+          _showStatus("Failed to place object");
+        }
+      }
+    } catch (e) {
+      print("CRITICAL ERROR in placement: $e");
+    } finally {
+      _isProcessingTap = false;
+      _arController.isPlacementInProgress.value = false;
+      print("BREADCRUMB [$_sessionId]: onPlaneOrPointTap FINISHED");
     }
-    _isProcessingTap = false;
-    print("BREADCRUMB [$_sessionId]: onPlaneOrPointTap FINISHED");
   }
 
   void onNodeTap(List<String> nodeNames) {
@@ -666,15 +880,13 @@ class _ArViewScreenState extends State<ArViewScreen> {
       return;
     }
 
-    setState(() {
-      selectedNode = tappedNode;
-    });
-    _checkLiDARSupport();
+    // ✅ Selection is now reactive - no setState needed
+    selectedNode = tappedNode;
   }
 
   void onPanStart(String nodeName) {
-    if (isLocked && selectedNode?.name == nodeName) {
-      _showStatus("Object is locked");
+    if (isLocked) {
+      _showStatus("Object is locked 🔒");
       return;
     }
     _saveStateToUndo();
@@ -688,38 +900,15 @@ class _ArViewScreenState extends State<ArViewScreen> {
 
     if (isLocked) {
       _performUndo();
-      _showStatus("Movement blocked: Object is locked.");
+      _showStatus("Object is locked 🔒");
       return;
     }
 
-    // DYNAMIC RE-ANCHORING: Rebind to the physical floor at the new location
-    final worldTransform = transform;
-    final worldPos = worldTransform.getTranslation();
-
-    // 1. Create a new anchor at this spot
-    var newAnchor = ARPlaneAnchor(transformation: worldTransform);
-    bool? didAddAnchor = await arAnchorManager!.addAnchor(newAnchor);
-
-    if (didAddAnchor == true) {
-      // 2. Remove node from old anchor by re-adding it to the new one
-      // The plugin automatically handles parent switching when addNode is called with a new anchor
-      bool? didReAnchor = await arObjectManager!.addNode(
-        selectedNode!,
-        planeAnchor: newAnchor,
-      );
-
-      if (didReAnchor == true) {
-        anchors.add(newAnchor);
-        selectedNode!.position = vector.Vector3(
-          0,
-          0,
-          0,
-        ); // Reset local to new anchor origin
-        _nodeAnchors[nodeName] = newAnchor; // Update anchor mapping
-        _worldPositions[nodeName] = worldPos;
-        _showStatus("Anchor updated 📍");
-      }
-    }
+    // Update world position tracking (no re-anchoring to avoid ghost nodes)
+    final worldPos = transform.getTranslation();
+    _worldPositions[nodeName] = worldPos;
+    _nodeAnchors[nodeName] =
+        _nodeAnchors[nodeName] ?? anchors.last; // Keep original anchor
 
     // Magnetic Wall Snapping Logic
     _applyMagneticWallSnapping(selectedNode!);
@@ -727,12 +916,15 @@ class _ArViewScreenState extends State<ArViewScreen> {
     if (_checkCollision(worldPos, selectedNode)) {
       _showStatus("Warning: Overlapping furniture!");
       _performUndo();
-    } else {
-      _runAiAnalysis(); // Trigger AI check after significant move
     }
+    // ✅ Pan finished, positions updated - no setState needed for visual feedback
   }
 
   void onRotationStart(String nodeName) {
+    if (isLocked) {
+      _showStatus("Object is locked 🔒");
+      return;
+    }
     _saveStateToUndo();
   }
 
@@ -741,25 +933,17 @@ class _ArViewScreenState extends State<ArViewScreen> {
     final node = selectedNode;
     if (node == null || node.name != nodeName) return;
 
+    if (isLocked) {
+      _performUndo();
+      _showStatus("Object is locked 🔒");
+      return;
+    }
+
     // Extract rotation
     selectedNode!.rotation = transform.getRotation();
 
-    // DYNAMIC RE-ANCHORING on rotation too
-    var newAnchor = ARPlaneAnchor(transformation: transform);
-    bool? didAddAnchor = await arAnchorManager!.addAnchor(newAnchor);
-    if (didAddAnchor == true) {
-      bool? didReAnchor = await arObjectManager!.addNode(
-        selectedNode!,
-        planeAnchor: newAnchor,
-      );
-      if (didReAnchor == true) {
-        anchors.add(newAnchor);
-        selectedNode!.position = vector.Vector3(0, 0, 0);
-        _nodeAnchors[nodeName] = newAnchor; // Update anchor mapping
-        _worldPositions[nodeName] = transform.getTranslation();
-      }
-    }
-    _aiDebouncer.run(() => _runAiAnalysis());
+    // Update world position tracking (no re-anchoring to avoid ghost nodes)
+    _worldPositions[nodeName] = transform.getTranslation();
   }
 
   void _togglePlanes() {
@@ -937,189 +1121,6 @@ class _ArViewScreenState extends State<ArViewScreen> {
     );
   }
 
-  Widget _buildSwatchItem(int index) {
-    bool isSelected = _selectedColorIndex == index;
-    var material = _materialSwatches[index];
-
-    return GestureDetector(
-      onTap: () {
-        setState(() => _selectedColorIndex = index);
-        if (selectedNode != null) {
-          _applyMaterial(index);
-        }
-      },
-      child: Container(
-        width: 32,
-        height: 32,
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        decoration: BoxDecoration(
-          color: material['color'],
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: isSelected ? AppTheme.primaryBlue : Colors.white24,
-            width: isSelected ? 3 : 1,
-          ),
-          image: material['texture'] != null
-              ? DecorationImage(
-                  image: NetworkImage(material['texture']),
-                  fit: BoxFit.cover,
-                  opacity: 0.8,
-                )
-              : null,
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppTheme.primaryBlue.withOpacity(0.5),
-                    blurRadius: 10,
-                  ),
-                ]
-              : null,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _applyMaterial(int index) async {
-    if (selectedNode == null) return;
-
-    var material = _materialSwatches[index];
-    _showStatus("Applying ${material['name']} material...");
-
-    if (material['texture'] != null) {
-      await _arBridge.updateNodeTexture(
-        selectedNode!.name,
-        material['texture'],
-      );
-    } else {
-      // Revert to default/base
-      _showStatus("Reverted to base material.");
-    }
-  }
-
-  // --- AI RECOMMENDATION LOGIC ---
-  Future<void> _runAiAnalysis({bool silent = true}) async {
-    if (_arController.aiAnalysisState.value.isLoading) return;
-    print("AR View: Starting AI Spatial Analysis (Silent: $silent)...");
-
-    if (!silent) {
-      _arController.aiAnalysisState.value = ArOperationState.loading();
-    }
-    // Keep local for UI updates if needed, but rely on controller for overlay
-    if (mounted) setState(() => _isAnalyzing = true);
-
-    try {
-      // 1. Map placed nodes to metadata
-      List<FurnitureMetadata> placedItems = [];
-      for (var node in nodes) {
-        var meta = _furniture.firstWhere(
-          (f) => f['model'] == node.uri,
-          orElse: () => {},
-        );
-        if (meta.isNotEmpty) {
-          placedItems.add(
-            FurnitureMetadata(
-              id: meta['id'],
-              name: meta['name'],
-              style: meta['style'],
-              baseColor: meta['color'],
-              dimensions: (meta['dims'] as List)
-                  .map((e) => (e as num).toDouble())
-                  .toList(),
-              price: (meta['price'] as num).toDouble(),
-            ),
-          );
-        }
-      }
-      print("AR View: ${placedItems.length} items identified for analysis.");
-
-      // 2. Map catalog
-      List<FurnitureMetadata> catalogItems = _furniture
-          .map(
-            (f) => FurnitureMetadata(
-              id: f['id'],
-              name: f['name'],
-              style: f['style'],
-              baseColor: f['color'],
-              dimensions: (f['dims'] as List)
-                  .map((e) => (e as num).toDouble())
-                  .toList(),
-              price: (f['price'] as num).toDouble(),
-            ),
-          )
-          .toList();
-
-      // 3. Create Context
-      final context = SpatialContext(
-        roomArea: 15.0,
-        placedFurniture: placedItems,
-        availableCatalog: catalogItems,
-      );
-
-      // 4. Request Analysis
-      final insights = await _aiService.analyzeRoom(context);
-      print("AR View: AI Analysis returned ${insights.length} insights.");
-
-      _arController.aiAnalysisState.value = ArOperationState.success();
-
-      if (mounted) {
-        setState(() {
-          _activeInsights = insights;
-          _isAnalyzing = false;
-        });
-      }
-    } catch (e) {
-      print("AR View: AI Analysis failed - $e");
-      _arController.aiAnalysisState.value = ArOperationState.error(
-        e.toString(),
-      );
-      if (mounted) setState(() => _isAnalyzing = false);
-    }
-  }
-
-  Future<void> _magicArrange(AiInsight insight) async {
-    // 1. Handle Style Filtering Action
-    if (insight.suggestedAction == "FILTER_STYLE" &&
-        insight.suggestedValue != null) {
-      _showStatus("Filtering for ${insight.suggestedValue} style... 🔎");
-
-      // We maintain the original custom models and filtered ArData items
-      final List<Map<String, dynamic>> filtered = ArData.furniture
-          .where((f) => f['style'] == insight.suggestedValue)
-          .toList();
-
-      setState(() {
-        _furniture = filtered;
-        _selectedFurnitureIndex = 0;
-      });
-      return;
-    }
-
-    if (insight.suggestedPosition == null || nodes.isEmpty) return;
-
-    final suggestion = insight.suggestedPosition!;
-    final targetPos = vector.Vector3(
-      suggestion[0],
-      suggestion[1],
-      suggestion[2],
-    );
-
-    _showStatus("Magic Arrange: Optimizing layout... ✨");
-
-    // For demo, we move the last added node or a specific targeted node if we had IDs
-    // Since AI is general, we find the "worst" item or just move the selected one
-    final targetNode = selectedNode ?? nodes.last;
-
-    _saveStateToUndo();
-
-    setState(() {
-      targetNode.position = targetPos;
-      _worldPositions[targetNode.name] = targetPos; // Update shadow map
-    });
-
-    _showStatus("Layout optimized! How does it look?");
-    _runAiAnalysis(); // Re-analyze after move
-  }
-
   // --- PROJECT PERSISTENCE ---
   Future<void> _loadProjectItems({ARHitTestResult? groundingHit}) async {
     if (arObjectManager == null || arAnchorManager == null) return;
@@ -1235,7 +1236,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
         print(
           "DEBUG: All items restored via Cloud. Skipping fallback grounding.",
         );
-        if (nodes.isNotEmpty) _runAiAnalysis();
+
         return;
       }
 
@@ -1291,7 +1292,6 @@ class _ArViewScreenState extends State<ArViewScreen> {
       }
 
       // Scan loaded items for AI
-      if (nodes.isNotEmpty) _runAiAnalysis();
     } finally {
       _isLoadingItems = false;
       print("BREADCRUMB [$_sessionId]: _loadProjectItems FINISHED");
@@ -1299,6 +1299,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
   }
 
   Future<void> _groundDesign(ARHitTestResult hit) async {
+    _showStatus("Grounding design... Please wait. 🏗️");
+
     // 1. Calculate Restoration Offset
     // We align the FIRST saved item to the user's grounding tap
     if (_currentProject.items.isNotEmpty) {
@@ -1314,10 +1316,6 @@ class _ArViewScreenState extends State<ArViewScreen> {
         "DEBUG: Relative Restoration Offset calculated: $_restorationOffset",
       );
     }
-
-    setState(() {
-      _isRestored = true;
-    });
 
     // Confirmation Dialog for Restoration
     bool shouldRestore = true;
@@ -1449,16 +1447,6 @@ class _ArViewScreenState extends State<ArViewScreen> {
 
   // Error Listener
   void _setupErrorListener() {
-    ever(_arController.aiAnalysisState, (ArOperationState state) {
-      if (state.isError) {
-        _showError(
-          "AI Analysis Failed",
-          state.errorMessage ?? "Unknown error",
-          onRetry: () => _runAiAnalysis(silent: false),
-        );
-      }
-    });
-
     ever(_arController.placementState, (ArOperationState state) {
       if (state.isError) {
         _showError("Placement Failed", state.errorMessage ?? "Unknown error");
@@ -1466,31 +1454,38 @@ class _ArViewScreenState extends State<ArViewScreen> {
     });
   }
 
-  double _calculateTotalBudget() {
-    double totalBudget = 0;
-    for (var node in nodes) {
-      var meta = _furniture.firstWhere(
-        (f) => f['model'] == node.uri,
-        orElse: () => {},
-      );
-      if (meta.isNotEmpty) {
-        totalBudget += (meta['price'] as num).toDouble();
-      }
-    }
-    return totalBudget;
+  Widget _buildCircleButton(IconData icon, VoidCallback onTap, {Color? color}) {
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          // ✅ Removed BackdropFilter for FPS boost
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: color ?? const Color(0x26FFFFFF), // white 15% opacity
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0x33FFFFFF)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+      ),
+    );
   }
 
-  Widget _buildCircleButton(IconData icon, VoidCallback onTap, {Color? color}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color ?? Colors.black.withOpacity(0.3),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white24),
+  Widget _buildGlassCircleButton(IconData icon, VoidCallback onTap) {
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          // ✅ Removed BackdropFilter for FPS boost
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0x26FFFFFF), // white 15% opacity
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0x33FFFFFF)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 24),
         ),
-        child: Icon(icon, color: Colors.white, size: 20),
       ),
     );
   }
@@ -1500,17 +1495,21 @@ class _ArViewScreenState extends State<ArViewScreen> {
     Color color = Colors.white30,
     VoidCallback? onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: color == Colors.white30
-              ? Colors.black.withOpacity(0.3)
-              : color,
-          shape: BoxShape.circle,
+    return RepaintBoundary(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          // ✅ Removed BackdropFilter for FPS boost
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color == Colors.white30
+                ? const Color(0x26FFFFFF)
+                : color.withValues(alpha: 0.6),
+            shape: BoxShape.circle,
+            border: Border.all(color: const Color(0x33FFFFFF)),
+          ),
+          child: Icon(icon, color: Colors.white, size: 18),
         ),
-        child: Icon(icon, color: Colors.white, size: 18),
       ),
     );
   }

@@ -193,7 +193,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       ),
                       GestureDetector(
                         onTap: () {
-                          Get.to(() => const SignupScreen());
+                          Get.to(
+                            () => const SignupScreen(),
+                            transition: Transition.fadeIn,
+                            duration: const Duration(milliseconds: 500),
+                          );
                         },
                         child: const Text(
                           'Sign Up',

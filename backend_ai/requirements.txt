@@ -3,6 +3,8 @@ uvicorn
 pydantic
 numpy
 scipy
-gradio_client
+tripo3d
 python-dotenv
 python-multipart
+requests
+cloudinary

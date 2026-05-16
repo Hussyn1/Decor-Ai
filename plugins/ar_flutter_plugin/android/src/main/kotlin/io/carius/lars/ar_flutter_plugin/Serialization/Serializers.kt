@@ -13,17 +13,89 @@ fun serializeHitResult(hitResult: HitResult): HashMap<String, Any> {
 
     if (hitResult.trackable is Plane && (hitResult.trackable as Plane).isPoseInPolygon(hitResult.hitPose)) {
         serializedHitResult["type"] = 1 // Type plane
+        // Surface type detection: include plane type
+        val plane = hitResult.trackable as Plane
+        serializedHitResult["surfaceType"] = when (plane.type) {
+            Plane.Type.HORIZONTAL_UPWARD_FACING -> 0   // floor or table
+            Plane.Type.HORIZONTAL_DOWNWARD_FACING -> 1  // ceiling
+            Plane.Type.VERTICAL -> 2                    // wall
+            else -> 3                                   // unknown
+        }
     }
     else if (hitResult.trackable is Point){
         serializedHitResult["type"] = 2 // Type point
+        serializedHitResult["surfaceType"] = 3 // unknown for points
     } else {
         serializedHitResult["type"] = 0 // Type undefined
+        serializedHitResult["surfaceType"] = 3 // unknown
     }
 
     serializedHitResult["distance"] = hitResult.distance.toDouble()
     serializedHitResult["worldTransform"] = serializePose(hitResult.hitPose)
 
     return serializedHitResult
+}
+
+// ─── Light Estimation Serialization ────────────────────────────────────────
+fun serializeLightEstimate(frame: Frame): HashMap<String, Any>? {
+    val lightEstimate = frame.lightEstimate ?: return null
+    if (lightEstimate.state == LightEstimate.State.NOT_VALID) return null
+
+    val data = HashMap<String, Any>()
+    data["pixelIntensity"] = lightEstimate.pixelIntensity.toDouble()
+
+    // Color correction (RGBA)
+    val colorCorrection = FloatArray(4)
+    lightEstimate.getColorCorrection(colorCorrection, 0)
+    data["colorCorrection"] = colorCorrection.map { it.toDouble() }
+
+    // Environmental HDR data (may not be available on all configs)
+    try {
+        val direction = lightEstimate.environmentalHdrMainLightDirection
+        data["mainLightDirection"] = floatArrayOf(direction[0], direction[1], direction[2]).map { it.toDouble() }
+
+        val intensity = lightEstimate.environmentalHdrMainLightIntensity
+        data["mainLightIntensity"] = floatArrayOf(intensity[0], intensity[1], intensity[2]).map { it.toDouble() }
+    } catch (e: Exception) {
+        // Environmental HDR not available, that's fine
+    }
+
+    return data
+}
+
+// ─── Plane Boundary Serialization (Room Scanning) ──────────────────────────
+fun serializePlane(plane: Plane): HashMap<String, Any> {
+    val data = HashMap<String, Any>()
+
+    data["type"] = when (plane.type) {
+        Plane.Type.HORIZONTAL_UPWARD_FACING -> 0   // floor
+        Plane.Type.HORIZONTAL_DOWNWARD_FACING -> 1  // ceiling
+        Plane.Type.VERTICAL -> 2                    // wall
+        else -> 3
+    }
+
+    data["centerPose"] = serializePose(plane.centerPose)
+    data["extentX"] = plane.extentX.toDouble()
+    data["extentZ"] = plane.extentZ.toDouble()
+
+    // Polygon boundary (2D points in plane's local coordinate system)
+    val polygon = plane.polygon
+    val polygonPoints = mutableListOf<Double>()
+    while (polygon.hasRemaining()) {
+        polygonPoints.add(polygon.get().toDouble()) // x
+        polygonPoints.add(polygon.get().toDouble()) // z
+    }
+    data["polygon"] = polygonPoints
+
+    // Tracking state
+    data["trackingState"] = when (plane.trackingState) {
+        TrackingState.TRACKING -> 0
+        TrackingState.PAUSED -> 1
+        TrackingState.STOPPED -> 2
+        else -> 2
+    }
+
+    return data
 }
 
 fun serializePose(pose: Pose): DoubleArray {

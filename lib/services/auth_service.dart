@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/api_error_handler.dart';
+import '../core/api_config.dart';
 
 class AuthService {
-  // Use 10.0.2.2 for Android Emulator, localhost for iOS/Web/Windows
-  // Replace with your PC's IP if testing on real device
-  static const String baseUrl = 'http://192.168.100.8:5000/api/auth';
+  static String get baseUrl => ApiConfig.authEndpoint;
 
   Future<Map<String, dynamic>> login(String email, String password) async {
     try {
@@ -13,19 +13,23 @@ class AuthService {
         Uri.parse('$baseUrl/login'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email, 'password': password}),
-      );
-
-      final data = jsonDecode(response.body);
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
         await _saveToken(data['token']);
         await _saveUser(data);
         return {'success': true, 'data': data};
       } else {
-        return {'success': false, 'message': data['message'] ?? 'Login failed'};
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode,
+          response.body,
+        );
+        return {'success': false, 'message': error.message};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Connection error: $e'};
+      final error = ApiErrorHandler.handleException(e);
+      return {'success': false, 'message': error.message};
     }
   }
 
@@ -43,22 +47,23 @@ class AuthService {
           'email': email,
           'password': password,
         }),
-      );
-
-      final data = jsonDecode(response.body);
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
         await _saveToken(data['token']);
         await _saveUser(data);
         return {'success': true, 'data': data};
       } else {
-        return {
-          'success': false,
-          'message': data['message'] ?? 'Signup failed',
-        };
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode,
+          response.body,
+        );
+        return {'success': false, 'message': error.message};
       }
     } catch (e) {
-      return {'success': false, 'message': 'Connection error: $e'};
+      final error = ApiErrorHandler.handleException(e);
+      return {'success': false, 'message': error.message};
     }
   }
 

@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/api_error_handler.dart';
+import '../core/api_config.dart';
 
 class FurnitureMetadata {
   final String id;
@@ -84,8 +86,7 @@ class AiInsight {
 }
 
 class AiRecommendationService {
-  final String baseUrl =
-      "http://192.168.100.8:8000"; // Android Emulator localhost bridge
+  String get baseUrl => ApiConfig.aiBaseUrl;
 
   Future<List<AiInsight>> analyzeRoom(SpatialContext context) async {
     print("AI Service: Sending analysis request to $baseUrl...");
@@ -96,7 +97,7 @@ class AiRecommendationService {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode(context.toJson()),
           )
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 15));
 
       print(
         "AI Service: Received response with status code ${response.statusCode}",
@@ -106,11 +107,16 @@ class AiRecommendationService {
         print("AI Service: Successfully parsed ${data.length} insights.");
         return data.map((json) => AiInsight.fromJson(json)).toList();
       } else {
-        print("AI Service: Error response - ${response.body}");
-        throw Exception("Failed to get AI analysis: ${response.statusCode}");
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode,
+          response.body,
+        );
+        print("AI Service: ${error.title} - ${error.message}");
+        return [];
       }
     } catch (e) {
-      print("AI Service Error: $e");
+      final error = ApiErrorHandler.handleException(e);
+      print("AI Service Error: ${error.title} - ${error.message}");
       print(
         "Check if: 1. Server is running at $baseUrl, 2. Internet permission is added, 3. You are using an emulator (if not, use your PC's IP).",
       );

@@ -26,17 +26,15 @@ class HomeScreen extends StatelessWidget {
     final List<Widget> screens = [
       const HomeDashboard(),
       const ProjectsScreen(),
-      const ArViewScreen(project: null), // Placeholder
-      const DiscoverScreen(),
+      const SizedBox.shrink(), // AR is launched via navigation, not inline
+       DiscoverScreen(),
       const SettingsScreen(),
     ];
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundLight,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Obx(
-        () => controller.selectedIndex.value == 2
-            ? const ArViewScreen()
-            : screens[controller.selectedIndex.value],
+        () => screens[controller.selectedIndex.value],
       ),
       bottomNavigationBar: _buildBottomNav(context, controller),
     );
@@ -46,7 +44,7 @@ class HomeScreen extends StatelessWidget {
     return Container(
       height: 90,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -73,7 +71,9 @@ class HomeScreen extends StatelessWidget {
               offset: const Offset(0, -25),
               child: FloatingActionButton(
                 heroTag: 'home_fab',
-                onPressed: () => Get.to(() => const ArViewScreen()),
+                onPressed: () {
+                  Get.to(() => const ArViewScreen());
+                },
                 backgroundColor: AppTheme.primaryBlue,
                 elevation: 10,
                 shape: RoundedRectangleBorder(
@@ -171,7 +171,9 @@ class _HomeDashboardState extends State<HomeDashboard> {
             height: 50,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.grey.shade300,
+              color: Theme.of(context).brightness == Brightness.dark 
+                  ? Colors.grey.shade800 
+                  : Colors.grey.shade300,
             ),
             child: hasImage
                 ? ClipOval(
@@ -209,7 +211,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
           child: Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
@@ -228,7 +230,11 @@ class _HomeDashboardState extends State<HomeDashboard> {
 
   Widget _buildAiStylistBanner() {
     return GestureDetector(
-      onTap: () => Get.to(() => const AiStylistScreen()),
+      onTap: () => Get.to(
+        () => const AiStylistScreen(),
+        transition: Transition.fadeIn,
+        duration: const Duration(milliseconds: 500),
+      ),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -305,7 +311,11 @@ class _HomeDashboardState extends State<HomeDashboard> {
             const SizedBox(width: 16),
             Expanded(
               child: GestureDetector(
-                onTap: () => Get.to(() => const TwoDToThreeDBuilder()),
+                onTap: () => Get.to(
+                  () => const TwoDToThreeDBuilder(),
+                  transition: Transition.fadeIn,
+                  duration: const Duration(milliseconds: 500),
+                ),
                 child: _buildToolCard(
                   '2D to 3D',
                   'Convert sketches',
@@ -331,9 +341,13 @@ class _HomeDashboardState extends State<HomeDashboard> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark 
+              ? Colors.white10 
+              : Colors.grey.shade100,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -407,7 +421,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(

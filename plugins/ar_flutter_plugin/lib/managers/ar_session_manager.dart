@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:ar_flutter_plugin/datatypes/config_planedetection.dart';
 import 'package:ar_flutter_plugin/models/ar_anchor.dart';
 import 'package:ar_flutter_plugin/models/ar_hittest_result.dart';
+import 'package:ar_flutter_plugin/models/light_estimate.dart';
+import 'package:ar_flutter_plugin/models/detected_plane.dart';
 import 'package:ar_flutter_plugin/utils/json_converters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +13,8 @@ import 'package:vector_math/vector_math_64.dart';
 
 // Type definitions to enforce a consistent use of the API
 typedef ARHitResultHandler = void Function(List<ARHitTestResult> hits);
+typedef ARLightEstimateHandler = void Function(LightEstimate estimate);
+typedef ARPlanesDetectedHandler = void Function(List<DetectedPlane> planes);
 
 /// Manages the session configuration, parameters and events of an [ARView]
 class ARSessionManager {
@@ -27,7 +31,13 @@ class ARSessionManager {
   final PlaneDetectionConfig planeDetectionConfig;
 
   /// Receives hit results from user taps with tracked planes or feature points
-  late ARHitResultHandler onPlaneOrPointTap;
+  ARHitResultHandler? onPlaneOrPointTap;
+
+  /// Receives continuous light estimation updates
+  ARLightEstimateHandler? onLightEstimate;
+
+  /// Receives continuous plane detection updates (for room scanning)
+  ARPlanesDetectedHandler? onPlanesDetected;
 
   ARSessionManager(int id, this.buildContext, this.planeDetectionConfig,
       {this.debug = false}) {
@@ -125,7 +135,23 @@ class ARSessionManager {
             final hitTestResults = serializedHitTestResults.map((e) {
               return ARHitTestResult.fromJson(e);
             }).toList();
-            onPlaneOrPointTap(hitTestResults);
+            onPlaneOrPointTap!(hitTestResults);
+          }
+          break;
+        case 'onLightEstimate':
+          if (onLightEstimate != null) {
+            final serializedData = Map<String, dynamic>.from(call.arguments);
+            onLightEstimate!(LightEstimate.fromJson(serializedData));
+          }
+          break;
+        case 'onPlanesDetected':
+          if (onPlanesDetected != null) {
+            final rawPlanes = call.arguments as List<dynamic>;
+            final serializedPlanes =
+                rawPlanes.map((p) => Map<String, dynamic>.from(p)).toList();
+            final planes =
+                serializedPlanes.map((e) => DetectedPlane.fromJson(e)).toList();
+            onPlanesDetected!(planes);
           }
           break;
         case 'dispose':
@@ -210,5 +236,58 @@ class ARSessionManager {
       print('Error caught in performHitTest: ' + e.toString());
       return [];
     }
+  }
+
+  /// Performs a programmatic hit test at the center of the screen
+  Future<ARHitTestResult?> getSurfaceAtCenter() async {
+    try {
+      final serializedHitTestResult =
+          await _channel.invokeMethod<Map<dynamic, dynamic>?>('getSurfaceAtCenter');
+      if (serializedHitTestResult == null) return null;
+      return ARHitTestResult.fromJson(Map<String, dynamic>.from(serializedHitTestResult));
+    } catch (e) {
+      print('Error caught in getSurfaceAtCenter: ' + e.toString());
+      return null;
+    }
+  }
+
+  /// Explicitly requests the current light estimate from ARCore
+  Future<LightEstimate?> getLightEstimate() async {
+    try {
+      final serializedLight =
+          await _channel.invokeMethod<Map<dynamic, dynamic>?>('getLightEstimate');
+      if (serializedLight == null) return null;
+      return LightEstimate.fromJson(Map<String, dynamic>.from(serializedLight));
+    } catch (e) {
+      print('Error caught in getLightEstimate: ' + e.toString());
+      return null;
+    }
+  }
+
+  /// Explicitly requests all currently detected planes (room scanning)
+  Future<List<DetectedPlane>> getDetectedPlanes() async {
+    try {
+      final serializedPlanes =
+          await _channel.invokeMethod<List<dynamic>>('getDetectedPlanes');
+      if (serializedPlanes == null) return [];
+      
+      return serializedPlanes
+          .map((e) => Map<String, dynamic>.from(e))
+          .map((e) => DetectedPlane.fromJson(e))
+          .toList();
+    } catch (e) {
+      print('Error caught in getDetectedPlanes: ' + e.toString());
+      return [];
+    }
+  }
+
+  /// Starts streaming plane detections for room scanning via the onPlanesDetected callback
+  Future<void> startRoomScan() async {
+    await _channel.invokeMethod<void>('startRoomScan');
+  }
+
+  /// Stops streaming plane detections
+  Future<void> stopRoomScan() async {
+    await _channel.invokeMethod<void>('stopRoomScan');
   }
 }

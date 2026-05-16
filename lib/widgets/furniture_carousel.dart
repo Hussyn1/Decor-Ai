@@ -1,6 +1,8 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import 'dart:io';
 
 /// Furniture Carousel Widget
 ///
@@ -24,19 +26,35 @@ class FurnitureCarousel extends StatelessWidget {
       bottom: 0,
       left: 0,
       right: 0,
-      height: 100,
+      height: 110,
       child: RepaintBoundary(
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.4)),
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            itemCount: furniture.length,
-            itemBuilder: (context, index) {
-              return SizedBox(width: 140, child: _buildFurnitureItem(index));
-            },
+        child: ClipRRect(
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.25),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: furniture.length,
+                itemBuilder: (context, index) {
+                  return SizedBox(
+                    width: 140,
+                    child: _buildFurnitureItem(index),
+                  );
+                },
+              ),
+            ),
           ),
         ),
       ),
@@ -67,31 +85,7 @@ class FurnitureCarousel extends StatelessWidget {
             // Furniture Image with Shimmer
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: CachedNetworkImage(
-                imageUrl: item['image'],
-                width: 50,
-                height: 50,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Shimmer.fromColors(
-                  baseColor: Colors.grey[800]!,
-                  highlightColor: Colors.grey[600]!,
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    color: Colors.grey[800],
-                  ),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  width: 50,
-                  height: 50,
-                  color: Colors.grey[800],
-                  child: const Icon(
-                    Icons.error_outline,
-                    color: Colors.white54,
-                    size: 24,
-                  ),
-                ),
-              ),
+              child: _buildImage(item['image']),
             ),
             const SizedBox(height: 4),
             // Furniture Name
@@ -109,6 +103,50 @@ class FurnitureCarousel extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildImage(String imageSource) {
+    // Detect if it's a local file path
+    final bool isLocalFile =
+        imageSource.startsWith('/') ||
+        imageSource.contains('Application Documents') ||
+        imageSource.contains('com.example'); // Heuristic for local path
+
+    if (isLocalFile) {
+      return Image.file(
+        File(imageSource),
+        width: 50,
+        height: 50,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => _buildErrorPlaceholder(),
+      );
+    }
+
+    return CachedNetworkImage(
+      imageUrl: imageSource,
+      width: 50,
+      height: 50,
+      fit: BoxFit.cover,
+      placeholder: (context, url) => _buildShimmer(),
+      errorWidget: (context, url, error) => _buildErrorPlaceholder(),
+    );
+  }
+
+  Widget _buildShimmer() {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey[800]!,
+      highlightColor: Colors.grey[600]!,
+      child: Container(width: 50, height: 50, color: Colors.grey[800]),
+    );
+  }
+
+  Widget _buildErrorPlaceholder() {
+    return Container(
+      width: 50,
+      height: 50,
+      color: Colors.grey[800],
+      child: const Icon(Icons.error_outline, color: Colors.white54, size: 24),
     );
   }
 }

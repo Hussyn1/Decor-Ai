@@ -18,8 +18,13 @@ import 'dart:io';
 import 'package:open_filex/open_filex.dart';
 import '../core/app_theme.dart';
 import '../widgets/shimmer_loading.dart';
+import '../widgets/light_estimation_badge.dart';
+import '../widgets/room_scan_overlay.dart';
+import 'package:ar_flutter_plugin/datatypes/surface_type.dart';
+import 'package:ar_flutter_plugin/models/light_estimate.dart';
+import 'package:ar_flutter_plugin/models/detected_plane.dart';
 
-enum MeasureMode { distance, area, height }
+enum MeasureMode { distance, area, height, roomScan }
 
 class ArMeasureScreen extends StatefulWidget {
   const ArMeasureScreen({super.key});
@@ -43,8 +48,8 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   vector.Vector3? _livePosition;
   ARNode? _liveLineNode;
   bool _isUpdatingPreview = false; // guard against concurrent preview updates
-  bool _justPlacedPoint = false;   // cooldown flag after placing a point
-  int _lineNodeCounter = 0;        // unique ID counter for line nodes
+  bool _justPlacedPoint = false; // cooldown flag after placing a point
+  int _lineNodeCounter = 0; // unique ID counter for line nodes
   Timer? _frameTimer;
 
   // Dashed line animation
@@ -63,6 +68,11 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   List<Map<String, dynamic>> measurementHistory = [];
   bool _isSessionReady = false;
   bool _isLockedOnPlane = false; // crosshair hit a plane?
+
+  // Premium Features State
+  SurfaceType _currentSurface = SurfaceType.unknown;
+  LightEstimate? _lightEstimate;
+  List<DetectedPlane> _detectedPlanes = [];
 
   @override
   void initState() {
@@ -116,6 +126,14 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     );
     this.arObjectManager!.onInitialize();
 
+    this.arSessionManager!.onLightEstimate = (estimate) {
+      if (mounted) setState(() => _lightEstimate = estimate);
+    };
+
+    this.arSessionManager!.onPlanesDetected = (planes) {
+      if (mounted) setState(() => _detectedPlanes = planes);
+    };
+
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
         setState(() => _isSessionReady = true);
@@ -158,7 +176,8 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
       if (worldPositions.isNotEmpty) {
         bool showPreview = true;
-        if ((_currentMode == MeasureMode.distance || _currentMode == MeasureMode.height) && 
+        if ((_currentMode == MeasureMode.distance ||
+                _currentMode == MeasureMode.height) &&
             worldPositions.length >= 2) {
           showPreview = false;
         }
@@ -175,13 +194,20 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
         }
       }
 
-      if (mounted) setState(() => _isLockedOnPlane = true);
+      if (mounted) {
+        setState(() {
+          _isLockedOnPlane = true;
+          _currentSurface = hit.surfaceType;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() => _isLockedOnPlane = false);
+      if (mounted)
+        setState(() {
+          _isLockedOnPlane = false;
+          _currentSurface = SurfaceType.unknown;
+        });
     }
   }
-
-
 
   // ─── LIVE PREVIEW LINE (from last point → crosshair) ─────────────────────
   // The "dashed" appearance is simulated in AR by using a very thin,
@@ -213,7 +239,9 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   // ─── PLACE POINT (crosshair button tapped) ────────────────────────────────
   Future<void> _placePointAtCrosshair() async {
     if (_livePosition == null || !_isLockedOnPlane) return;
-    if ((_currentMode == MeasureMode.distance || _currentMode == MeasureMode.height) && 
+    if (_currentMode == MeasureMode.roomScan) return;
+    if ((_currentMode == MeasureMode.distance ||
+            _currentMode == MeasureMode.height) &&
         worldPositions.length >= 2) {
       return;
     }
@@ -222,65 +250,67 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     // while we're placing a point and promoting the live line
     _justPlacedPoint = true;
 
-    final pos = _livePosition!;
-    final matrix = vector.Matrix4.identity()..setTranslation(pos);
+    try {
+      final pos = _livePosition!;
+      final matrix = vector.Matrix4.identity()..setTranslation(pos);
 
-    var newAnchor = ARPlaneAnchor(transformation: matrix);
-    bool? didAddAnchor = await arAnchorManager!.addAnchor(newAnchor);
-    if (didAddAnchor != true) {
+      var newAnchor = ARPlaneAnchor(transformation: matrix);
+      bool? didAddAnchor = await arAnchorManager!.addAnchor(newAnchor);
+      if (didAddAnchor != true) {
+        _justPlacedPoint = false;
+        return;
+      }
+
+      anchors.add(newAnchor);
+      worldPositions.add(pos);
+
+      // Permanent endpoint dot — use a unique name
+      _lineNodeCounter++;
+      var newNode = ARNode(
+        type: NodeType.localGLTF2,
+        name: 'point_dot_$_lineNodeCounter',
+        uri: "assets/models/sphere.gltf",
+        scale: vector.Vector3(0.04, 0.04, 0.04), // Increased from 0.018
+        position: vector.Vector3(0, 0, 0),
+        rotation: vector.Vector4(1, 0, 0, 0),
+      );
+      bool? added = await arObjectManager!.addNode(
+        newNode,
+        planeAnchor: newAnchor,
+      );
+      if (added == true) nodes.add(newNode);
+
+      // Promote the current live line to a permanent confirmed line.
+      // We need to create a NEW dedicated node for the permanent line
+      // (with the final calculated transform) rather than reusing the
+      // live preview node — this avoids the frame loop from accidentally
+      // removing/modifying it.
+      if (worldPositions.length >= 2) {
+        // Remove the live preview node — we'll create a clean permanent one
+        if (_liveLineNode != null) {
+          final previewToRemove = _liveLineNode!;
+          _liveLineNode = null;
+          await arObjectManager?.removeNode(previewToRemove);
+        }
+
+        // Create the permanent line between the last two points
+        final from = worldPositions[worldPositions.length - 2];
+        final to = worldPositions.last;
+        final permanentLine = await _createLineNode(from, to, permanent: true);
+        if (permanentLine != null) {
+          lineNodes.add(permanentLine);
+        }
+      }
+
+      _updateMeasurements();
+      setState(() {});
+
+      // Brief cooldown to let the AR engine settle before the frame loop
+      // starts creating new preview lines again
+      await Future.delayed(const Duration(milliseconds: 150));
+    } finally {
       _justPlacedPoint = false;
-      return;
     }
-
-    anchors.add(newAnchor);
-    worldPositions.add(pos);
-
-    // Permanent endpoint dot — use a unique name
-    _lineNodeCounter++;
-    var newNode = ARNode(
-      type: NodeType.webGLB,
-      name: 'point_dot_$_lineNodeCounter',
-      uri:
-          "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb",
-      scale: vector.Vector3(0.018, 0.018, 0.018),
-      position: vector.Vector3(0, 0, 0),
-      rotation: vector.Vector4(1, 0, 0, 0),
-    );
-    bool? added = await arObjectManager!.addNode(
-      newNode,
-      planeAnchor: newAnchor,
-    );
-    if (added == true) nodes.add(newNode);
-
-    // Promote the current live line to a permanent confirmed line.
-    // We need to create a NEW dedicated node for the permanent line
-    // (with the final calculated transform) rather than reusing the
-    // live preview node — this avoids the frame loop from accidentally
-    // removing/modifying it.
-    if (worldPositions.length >= 2) {
-      // Remove the live preview node — we'll create a clean permanent one
-      if (_liveLineNode != null) {
-        final previewToRemove = _liveLineNode!;
-        _liveLineNode = null;
-        await arObjectManager?.removeNode(previewToRemove);
-      }
-
-      // Create the permanent line between the last two points
-      final from = worldPositions[worldPositions.length - 2];
-      final to = worldPositions.last;
-      final permanentLine = await _createLineNode(from, to, permanent: true);
-      if (permanentLine != null) {
-        lineNodes.add(permanentLine);
-      }
-    }
-
-    _updateMeasurements();
-    setState(() {});
-
-    // Brief cooldown to let the AR engine settle before the frame loop
-    // starts creating new preview lines again
-    await Future.delayed(const Duration(milliseconds: 150));
-    _justPlacedPoint = false;
   }
 
   /// Creates a line (Box.glb stretched) between two world points.
@@ -310,12 +340,11 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
     _lineNodeCounter++;
     final prefix = permanent ? 'perm_line' : 'live_line';
-    final thickness = permanent ? 0.003 : 0.002;
+    final thickness = permanent ? 0.01 : 0.006; // Increased thickness
     final node = ARNode(
-      type: NodeType.webGLB,
+      type: NodeType.localGLTF2,
       name: '${prefix}_$_lineNodeCounter',
-      uri:
-          "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Models/master/2.0/Box/glTF-Binary/Box.glb",
+      uri: "assets/models/sphere.gltf",
       transformation: transform,
       scale: vector.Vector3(thickness, thickness, dist),
     );
@@ -393,7 +422,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
         'timestamp': DateTime.now().toString().substring(11, 16),
       });
     });
-    
+
     // Automatically reset the session so user can start a new measurement immediately
     _resetSession();
   }
@@ -555,6 +584,8 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
             child: Column(
               children: [
                 if (measurementHistory.isNotEmpty) _buildHistoryList(),
+                if (_currentMode == MeasureMode.roomScan)
+                  RoomScanOverlay(planes: _detectedPlanes),
                 const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -567,15 +598,23 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
                     _buildCrosshairPlaceButton(), // ← THE KEY BUTTON
                     _buildActionFab(
                       Icons.refresh,
-                      worldPositions.isNotEmpty,
+                      worldPositions.isNotEmpty ||
+                          _currentMode == MeasureMode.roomScan,
                       _resetSession,
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                _buildPrimaryActionButton(),
+                if (_currentMode != MeasureMode.roomScan)
+                  _buildPrimaryActionButton(),
               ],
             ),
+          ),
+          // ── Light Estimation Badge ──
+          Positioned(
+            top: 50,
+            right: 20,
+            child: LightEstimationBadge(estimate: _lightEstimate),
           ),
         ],
       ),
@@ -584,8 +623,11 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
   // ── Crosshair place button (big center button) ────────────────────────────
   Widget _buildCrosshairPlaceButton() {
-    final bool canAdd = _isLockedOnPlane && 
-        !((_currentMode == MeasureMode.distance || _currentMode == MeasureMode.height) && worldPositions.length >= 2);
+    final bool canAdd =
+        _isLockedOnPlane &&
+        !((_currentMode == MeasureMode.distance ||
+                _currentMode == MeasureMode.height) &&
+            worldPositions.length >= 2);
 
     return GestureDetector(
       onTap: canAdd ? _placePointAtCrosshair : null,
@@ -623,10 +665,28 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
   // ── Animated crosshair ────────────────────────────────────────────────────
   Widget _buildCrosshair() {
+    if (_currentMode == MeasureMode.roomScan) return const SizedBox.shrink();
+
     return AnimatedBuilder(
       animation: _crosshairScale,
       builder: (_, __) {
         final scale = _isLockedOnPlane ? _crosshairScale.value : 1.0;
+
+        Color surfaceColor = AppTheme.primaryBlue;
+        switch (_currentSurface) {
+          case SurfaceType.floor:
+            surfaceColor = Colors.greenAccent;
+            break;
+          case SurfaceType.wall:
+            surfaceColor = Colors.blueAccent;
+            break;
+          case SurfaceType.ceiling:
+            surfaceColor = Colors.purpleAccent;
+            break;
+          default:
+            surfaceColor = AppTheme.primaryBlue;
+        }
+
         return Transform.scale(
           scale: scale,
           child: SizedBox(
@@ -635,7 +695,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
             child: CustomPaint(
               painter: _CrosshairPainter(
                 isLocked: _isLockedOnPlane,
-                primaryColor: AppTheme.primaryBlue,
+                primaryColor: surfaceColor,
               ),
             ),
           ),
@@ -658,6 +718,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
           _buildModeBtn(MeasureMode.distance, Icons.straighten),
           _buildModeBtn(MeasureMode.area, Icons.square_foot),
           _buildModeBtn(MeasureMode.height, Icons.vertical_align_top),
+          _buildModeBtn(MeasureMode.roomScan, Icons.radar),
         ],
       ),
     );
@@ -666,10 +727,19 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   Widget _buildModeBtn(MeasureMode mode, IconData icon) {
     final isSelected = _currentMode == mode;
     return GestureDetector(
-      onTap: () => setState(() {
-        _currentMode = mode;
-        _resetSession();
-      }),
+      onTap: () {
+        if (_currentMode == MeasureMode.roomScan &&
+            mode != MeasureMode.roomScan) {
+          arSessionManager?.stopRoomScan();
+        } else if (mode == MeasureMode.roomScan &&
+            _currentMode != MeasureMode.roomScan) {
+          arSessionManager?.startRoomScan();
+        }
+        setState(() {
+          _currentMode = mode;
+          _resetSession();
+        });
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         decoration: BoxDecoration(
@@ -687,6 +757,8 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
   // ── Measurement card ──────────────────────────────────────────────────────
   Widget _buildMeasurementCard() {
+    if (_currentMode == MeasureMode.roomScan) return const SizedBox.shrink();
+
     // While aiming (1 point placed), show live distance
     final bool isAiming = worldPositions.isNotEmpty && _liveDistance > 0;
 

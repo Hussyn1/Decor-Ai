@@ -3,17 +3,33 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import List, Optional
 import numpy as np
-from gradio_client import Client, handle_file
 import os
 import uuid
 import shutil
 import json
 import requests
+import cloudinary
+import cloudinary.uploader
 from dotenv import load_dotenv
+import subprocess
+import time
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+_executor = ThreadPoolExecutor(max_workers=3)
 
 # Load environment variables
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
+TRIPO_API_KEY = os.getenv("TRIPO_API_KEY")
+
+# Configure Cloudinary
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 app = FastAPI(title="Spatial AI Recommendation Service")
 
@@ -23,6 +39,10 @@ os.makedirs("static/uploads", exist_ok=True)
 
 # Mount static files to serve generated models
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# --- BACKGROUND TASKS TRACKING ---
+# Dictionary to store task status: {task_id: {"status": str, "progress": int, "message": str, "result": str}}
+TASKS = {}
 
 # --- DATA MODELS ---
 
@@ -95,8 +115,6 @@ async def root():
 @app.post("/analyze", response_model=List[AIResponse])
 async def analyze_room(context: SpatialContext):
     print(f"\n[AI-LOG] Analyzing room with {len(context.placed_furniture)} items...")
-    
-    # Constructing the prompt for the LLM
     placed_items_str = ", ".join([f"{item.name} ({item.style}, {item.base_color})" for item in context.placed_furniture])
     
     prompt = f"""
@@ -105,18 +123,9 @@ async def analyze_room(context: SpatialContext):
     Placed Furniture: {placed_items_str if placed_items_str else 'Empty Room'}
     
     Provide exactly 3 actionable design insights as a JSON list. 
-    Each insight MUST have:
-    - 'type': 'Warning', 'Suggestion', or 'Harmony'
-    - 'title': Short descriptive title
-    - 'message': 1-2 sentences of advice
-    - 'impact_score': 0.0 to 1.0
-    - 'suggested_action': (Optional) "FILTER_STYLE" to search the catalog
-    - 'suggested_value': (Optional) The style name (e.g., 'Modern', 'Industrial', 'Vintage')
-    
-    Respond ONLY with the JSON list. Respond as a JSON list of objects, not a string. Do not include markdown formatting or "```json".
+    Respond ONLY with the JSON list.
     """
 
-    # Using HuggingFace Inference API with a capable model
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
 
@@ -124,215 +133,172 @@ async def analyze_room(context: SpatialContext):
         response = requests.post(API_URL, headers=headers, json={
             "inputs": f"<s>[INST] {prompt} [/INST]",
             "parameters": {"max_new_tokens": 500, "return_full_text": False}
-        })
+        }, timeout=30)
         
-        # Checking for common API issues
-        if response.status_code != 200:
-            print(f"[AI-LOG] HF API Error: {response.text}")
-            raise Exception(f"HF API returned status {response.status_code}")
-
-        result = response.json()
-        if isinstance(result, list) and len(result) > 0:
-            result_text = result[0].get('generated_text', '')
-        else:
-            result_text = str(result)
-
-        print(f"[AI-LOG] LLM Output: {result_text}")
-        
-        # Extract JSON if LLM returned it wrapped in text/markdown
-        clean_json = result_text
-        if "[" in clean_json and "]" in clean_json:
-            clean_json = clean_json[clean_json.find("["):clean_json.rfind("]")+1]
-        
+        result_text = response.json()[0].get('generated_text', '')
+        clean_json = result_text[result_text.find("["):result_text.rfind("]")+1]
         insights_data = json.loads(clean_json)
         
-        # Map to pydantic model (handling small mismatches)
-        processed_insights = []
-        for item in insights_data:
-            processed_insights.append(AIResponse(
-                type=item.get('type', 'Suggestion'),
-                title=item.get('title', 'AI Insight'),
-                message=item.get('message', ''),
-                impact_score=float(item.get('impact_score', 0.5)),
-                suggested_action=item.get('suggested_action'),
-                suggested_value=item.get('suggested_value')
-            ))
-            
-        return processed_insights
+        return [AIResponse(**item) for item in insights_data]
         
     except Exception as e:
         print(f"[AI-LOG] LLM Analysis failed: {str(e)}")
-        # Fallback to simple rule-based if LLM fails
-        return [
-            AIResponse(
-                type="Suggestion", 
-                title="Room Layout", 
-                message="Ensure there is enough walking space of at least 1 meter between large items.", 
-                impact_score=0.5
-            )
-        ]
+        return [AIResponse(type="Suggestion", title="Room Layout", message="Ensure enough walking space.", impact_score=0.5)]
 
-@app.post("/generate-3d", response_model=ThreeDResponse)
-async def generate_3d(image: UploadFile = File(...)):
-    # Generate unique ID for this request
-    request_id = str(uuid.uuid4())
-    upload_path = f"static/uploads/{request_id}_{image.filename}"
-    
-    print(f"\n[AI-LOG] Received 3D generation request. Saving to {upload_path}...")
-    
+class TripoService:
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.base_url = "https://api.tripo3d.ai/v2/openapi"
+        self.headers = {"Authorization": f"Bearer {api_key}"}
+
+    def upload_file(self, file_path: str):
+        url = f"{self.base_url}/upload"
+        with open(file_path, "rb") as f:
+            files = {"file": (os.path.basename(file_path), f)}
+            response = requests.post(url, headers=self.headers, files=files, timeout=60)
+        data = response.json()
+        if data.get("code") != 0: raise Exception(f"Tripo upload error: {data.get('message')}")
+        return data["data"]["image_token"]
+
+    def create_task(self, image_token: str):
+        url = f"{self.base_url}/task"
+        payload = {
+            "type": "image_to_model",
+            "model_version": "v3.1-20260211",
+            "file": {"type": "jpg", "file_token": image_token},
+            "pbr": True, 
+            "texture": True,
+            "face_limit": 20000,      # Strict geometry limit to prevent 40MB+ files
+            "texture_size": 1024      # Half the standard resolution to save 75% VRAM
+        }
+        response = requests.post(url, headers=self.headers, json=payload, timeout=30)
+        data = response.json()
+        if data.get("code") != 0: raise Exception(f"Tripo task error: {data.get('message')}")
+        return data["data"]["task_id"]
+
+    def get_task_status(self, task_id: str):
+        url = f"{self.base_url}/task/{task_id}"
+        response = requests.get(url, headers=self.headers, timeout=15)
+        data = response.json()
+        if data.get("code") != 0: raise Exception(f"Tripo status error: {data.get('message')}")
+        return data["data"]
+
+def optimize_glb(input_path: str, output_path: str) -> str:
+    """Pass-through function. We disabled gltf-pipeline because it corrupts GLB headers for Android Sceneform."""
+    print(f"[AI-LOG] Using Tripo-native optimized mesh: {input_path}")
+    import shutil
     try:
-        # Save the uploaded file
-        with open(upload_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-            
-        print("[AI-LOG] File saved. Connecting to HF Space: microsoft/TRELLIS.2...")
-        client = Client("microsoft/TRELLIS.2", token=HF_TOKEN)
-        
-        # 1. Preprocess
-        print("[AI-LOG] Step 1/3: Preprocessing image...")
-        try:
-            # handle_file(upload_path) handles local file paths correctly for Gradio
-            client.predict(
-                input=handle_file(upload_path),
-                api_name="/preprocess_image"
-            )
-            print("[AI-LOG] Step 1 finished successfully.")
-        except Exception as e1:
-            print(f"[AI-LOG] Step 1 Failed: {str(e1)}")
-            raise e1
-
-        # 2. Generate 3D Assets
-        print("[AI-LOG] Step 2/3: Generating 3D assets (image_to_3d)...")
-        try:
-            client.predict(
-                image=handle_file(upload_path),
-                seed=0,
-                resolution="1024",
-                ss_guidance_strength=7.5,
-                ss_guidance_rescale=0.7,
-                ss_sampling_steps=12,
-                ss_rescale_t=5.0,
-                shape_slat_guidance_strength=7.5,
-                shape_slat_guidance_rescale=0.5,
-                shape_slat_sampling_steps=12,
-                shape_slat_rescale_t=3.0,
-                tex_slat_guidance_strength=1.0,
-                tex_slat_guidance_rescale=0.0,
-                tex_slat_sampling_steps=12,
-                tex_slat_rescale_t=3.0,
-                api_name="/image_to_3d"
-            )
-            print("[AI-LOG] Step 2 finished successfully.")
-        except Exception as e2:
-            print(f"[AI-LOG] Step 2 Failed: {str(e2)}")
-            # Sometimes step 2 fails if step 1 didn't truly finish or if the queue was full
-            raise e2
-
-        # 3. Extract GLB
-        print("[AI-LOG] Step 3/3: Extracting GLB model...")
-        try:
-            result = client.predict(
-                decimation_target=300000,
-                texture_size=2048,
-                api_name="/extract_glb"
-            )
-            print("[AI-LOG] Step 3 finished successfully.")
-        except Exception as e3:
-            print(f"[AI-LOG] Step 3 Failed: {str(e3)}")
-            raise e3
-        
-        # result is typically a tuple/list where the first element is the temp path to GLB
-        # Gradio client downloads the result to a temporary directory on THIS server
-        if isinstance(result, (list, tuple)) and len(result) > 0:
-            temp_glb_path = result[0]
-        else:
-            temp_glb_path = result
-            
-        print(f"[AI-LOG] Generated GLB at temp path: {temp_glb_path}")
-        
-        # Move the generated file to our static directory so it can be served
-        final_filename = f"{request_id}_model.glb"
-        final_path = f"static/generated/{final_filename}"
-        
-        shutil.copy(temp_glb_path, final_path)
-        print(f"[AI-LOG] Copied to public path: {final_path}")
-        
-        # Return the URL relative to our server
-        # The frontend handles prepending the base URL if needed, or we can do it here
-        # Returning /static/generated/filename.glb
-        return ThreeDResponse(
-            glb_url=f"/static/generated/{final_filename}", 
-            message="3D Model generated successfully"
-        )
-        
+        # Just copy the file to the output path without altering the GLB binary
+        shutil.copy2(input_path, output_path)
+        return output_path
     except Exception as e:
-        import traceback
-        error_detail = traceback.format_exc()
-        print(f"\n[AI-LOG] CRITICAL EXCEPTION:\n{error_detail}")
-        raise HTTPException(status_code=500, detail=f"AI Pipeline Error: {str(e)}")
-    finally:
-        # Cleanup upload if needed, or keep for debugging
-        pass
+        print(f"[AI-LOG] Pass-through failed: {e}")
+        return input_path
+
+@app.get("/task-status/{task_id}")
+async def get_task_status(task_id: str):
+    if task_id not in TASKS:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return TASKS[task_id]
+
+def process_3d_generation(task_id: str, upload_path: str):
+    print(f"\n[AI-LOG] [START] Task {task_id}")
+    TASKS[task_id] = {"status": "processing", "progress": 5, "message": "Starting generation..."}
+    try:
+        tripo = TripoService(TRIPO_API_KEY)
+        TASKS[task_id].update({"progress": 10, "message": "Uploading image..."})
+        image_token = tripo.upload_file(upload_path)
+        
+        TASKS[task_id].update({"progress": 20, "message": "Creating 3D mesh..."})
+        tripo_task_id = tripo.create_task(image_token)
+        
+        glb_url = None
+        max_retries = 150
+        for i in range(max_retries):
+            task_data = tripo.get_task_status(tripo_task_id)
+            status = task_data.get("status")
+            progress = task_data.get("progress", 0)
+            overall_progress = 20 + int(progress * 0.6)
+            TASKS[task_id].update({"progress": overall_progress, "message": f"Generating... ({progress}%)"})
+            
+            if status == "success":
+                output = task_data.get("output", {})
+                glb_url = output.get("model") or output.get("pbr_model") or output.get("glb")
+                break
+            elif status == "failed":
+                raise Exception(f"Tripo generation failed: {task_data.get('message', '')}")
+            time.sleep(2)
+        else:
+            raise Exception("TripoSR timed out after 5 minutes")
+
+        if not glb_url:
+            raise Exception("Generation succeeded but no GLB URL found in output")
+            
+        TASKS[task_id].update({"progress": 85, "message": "Downloading model..."})
+        glb_response = requests.get(glb_url, timeout=60)
+        final_filename = f"{task_id}_model.glb"
+        final_path = f"static/generated/{final_filename}"
+        with open(final_path, "wb") as f: f.write(glb_response.content)
+
+        TASKS[task_id].update({"progress": 95, "message": "Optimizing model..."})
+        optimized_path = f"static/generated/{task_id}_model_opt.glb"
+        final_served_path = optimize_glb(final_path, optimized_path)
+        
+        # --- NEW: Upload to Cloudinary ---
+        TASKS[task_id].update({"progress": 98, "message": "Uploading to Cloud..."})
+        try:
+            print(f"[AI-LOG] Uploading {final_served_path} to Cloudinary...")
+            upload_result = cloudinary.uploader.upload(
+                final_served_path, 
+                resource_type="raw",
+                public_id=f"furniture_3d/{task_id}.glb"
+            )
+            final_url = upload_result['secure_url']
+            print(f"[AI-LOG] 🚀 CLOUDINARY UPLOAD SUCCESS!")
+            print(f"[AI-LOG] URL: {final_url}")
+            print(f"[AI-LOG] Check your Cloudinary Dashboard under 'Media Library' -> 'Folders' -> 'furniture_3d'")
+            print(f"[AI-LOG] Note: .glb files are 'Raw' files and won't appear in the main Images tab.")
+        except Exception as cloud_err:
+            print(f"[AI-LOG] Cloudinary failed, falling back to local URL: {cloud_err}")
+            final_url = f"/static/generated/{os.path.basename(final_served_path)}"
+
+        TASKS[task_id].update({
+            "status": "success", "progress": 100, 
+            "message": "Complete!", "result": final_url
+        })
+    except Exception as e:
+        print(f"[AI-LOG] [ERROR] Task {task_id} failed: {str(e)}")
+        TASKS[task_id] = {"status": "failed", "progress": 100, "message": str(e)}
+
+@app.post("/generate-3d")
+async def generate_3d(background_tasks: BackgroundTasks, image: UploadFile = File(...)):
+    print(f"\n[AI-LOG] Received request to generate 3D model: {image.filename}")
+    task_id = str(uuid.uuid4())
+    upload_path = f"static/uploads/{task_id}_{image.filename}"
+    with open(upload_path, "wb") as buffer: 
+        shutil.copyfileobj(image.file, buffer)
+    
+    TASKS[task_id] = {"status": "queued", "progress": 0, "message": "Queued..."}
+    
+    # Run in executor so event loop stays free for /task-status polling
+    loop = asyncio.get_event_loop()
+    loop.run_in_executor(_executor, process_3d_generation, task_id, upload_path)
+    
+    print(f"[AI-LOG] Task created: {task_id}")
+    return {"task_id": task_id}
 
 @app.post("/recommend-style", response_model=StylingRecommendation)
 async def recommend_style(request: StylingRequest):
-    print(f"\n[AI-LOG] Global styling request: {request.prompt}")
-    
-    prompt = f"""
-    You are a world-class interior designer. Generate a design concept for a {request.room_type} based on: "{request.prompt}"
-    
-    Respond ONLY with a valid JSON object:
-    {{
-      "color_palette": [
-        {{ "name": "Deep Ocean", "hex": "#003366", "role": "Primary", "why": "Sets a calm tone" }},
-        {{ "name": "Sand", "hex": "#C2B280", "role": "Neutral", "why": "Balances the deep blue" }}
-      ],
-      "furniture_recommendations": [
-        {{ "item": "Velvet Sofa", "style": "Mid-Century", "color_suggestion": "Navy Blue", "why": "Acts as a bold centerpiece." }}
-      ],
-      "overall_design_summary": "A sophisticated coastal retreat inspired by the deep sea.",
-      "visualization_prompt": "A {request.room_type} with {request.prompt}, photorealistic, professional lighting, 8k"
-    }}
-    
-    Return at least 4 colors and 3 furniture items. No markdown. No code blocks. No backticks.
-    """
-
+    prompt = f"Interior designer concept for {request.room_type}: {request.prompt}. Return JSON."
     API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3"
     headers = {"Authorization": f"Bearer {HF_TOKEN}"}
-
     try:
-        response = requests.post(API_URL, headers=headers, json={
-            "inputs": f"<s>[INST] {prompt} [/INST]",
-            "parameters": {"max_new_tokens": 800, "return_full_text": False}
-        })
-        
-        if response.status_code != 200:
-            raise Exception(f"HF API error: {response.text}")
-
+        response = requests.post(API_URL, headers=headers, json={"inputs": f"<s>[INST] {prompt} [/INST]"}, timeout=30)
         result_text = response.json()[0].get('generated_text', '')
-        print(f"[AI-LOG] LLM Output: {result_text}")
-        
-        # Clean JSON extraction
-        clean_json = result_text
-        if "{" in clean_json and "}" in clean_json:
-            clean_json = clean_json[clean_json.find("{"):clean_json.rfind("}")+1]
-        
-        data = json.loads(clean_json)
-        return StylingRecommendation(**data)
-        
+        clean_json = result_text[result_text.find("{"):result_text.rfind("}")+1]
+        return StylingRecommendation(**json.loads(clean_json))
     except Exception as e:
-        print(f"[AI-LOG] Styling failed: {str(e)}")
-        # Robust Fallback
-        return StylingRecommendation(
-            color_palette=[
-                ColorPaletteItem(name="Slate", hex="#708090", role="Primary", why="Modern base"),
-                ColorPaletteItem(name="Gold", hex="#FFD700", role="Accent", why="Adds warmth")
-            ],
-            furniture_recommendations=[
-                FurnitureRecommendation(item="Minimalist Table", style="Modern", color_suggestion="Black", why="Clean lines")
-            ],
-            overall_design_summary="A clean modern aesthetic with subtle metal accents."
-        )
+        return StylingRecommendation(color_palette=[], furniture_recommendations=[], overall_design_summary="Error")
 
 if __name__ == "__main__":
     import uvicorn
