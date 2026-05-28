@@ -353,7 +353,7 @@ class ReimagineUploadSheet extends StatelessWidget {
         color: Theme.of(context).scaffoldBackgroundColor,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
       ),
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.only(top: 16, left: 24, right: 24, bottom: 24),
       child: Obx(
         () => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +368,7 @@ class ReimagineUploadSheet extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
             Text(
               isStyleReference ? 'Get This Look' : 'Start Transformation',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
@@ -378,140 +378,204 @@ class ReimagineUploadSheet extends StatelessWidget {
               isStyleReference
                   ? 'We will apply this design to your room'
                   : 'Select a style and upload your room photo',
-              style: const TextStyle(color: Colors.grey),
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
             ),
-            const SizedBox(height: 24),
-
-            if (isStyleReference && controller.referenceImageUrl.value != null)
-              Container(
-                height: 120,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  image: DecorationImage(
-                    image: NetworkImage(controller.referenceImageUrl.value!),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                child: Container(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    color: Colors.black26,
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.check_circle,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                ),
-              ),
-
-            if (!isStyleReference) ...[
-              const Text(
-                'SELECT STYLE',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.5,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildStyleGrid(controller),
-            ],
-
-            const SizedBox(height: 32),
-            const Text(
-              'UPLOAD YOUR ROOM',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            GestureDetector(
-              onTap: () => controller.pickImage(),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(32),
-                decoration: BoxDecoration(
-                  color: controller.selectedImage.value != null
-                      ? Colors.transparent
-                      : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(
-                    color: controller.selectedImage.value != null
-                        ? AppTheme.primaryBlue
-                        : Colors.grey.shade200,
-                    width: 2,
-                    style: BorderStyle.solid,
-                  ),
-                  image: controller.selectedImage.value != null
-                      ? DecorationImage(
-                          image: FileImage(controller.selectedImage.value!),
-                          fit: BoxFit.cover,
-                        )
-                      : null,
-                ),
-                child: controller.selectedImage.value != null
-                    ? const SizedBox(height: 120)
-                    : const Column(
-                        children: [
-                          Icon(
-                            Icons.camera_alt_outlined,
-                            size: 48,
-                            color: Colors.grey,
+            const SizedBox(height: 20),
+            
+            // Scrollable content area
+            Expanded(
+              child: SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isStyleReference && controller.referenceImageUrl.value != null) ...[
+                      Container(
+                        height: 120,
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          image: DecorationImage(
+                            image: NetworkImage(controller.referenceImageUrl.value!),
+                            fit: BoxFit.cover,
                           ),
-                          SizedBox(height: 16),
-                          Text(
-                            'Take or upload a photo',
-                            style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.black26,
                           ),
-                          Text(
-                            'Your empty room photo works best',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          child: const Center(
+                            child: Icon(
+                              Icons.check_circle,
+                              color: Colors.white,
+                              size: 40,
+                            ),
                           ),
-                        ],
+                        ),
                       ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    if (!isStyleReference) ...[
+                      const Text(
+                        'SELECT DECOR STYLE',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildStyleGrid(controller),
+                      const SizedBox(height: 20),
+                      
+                      const Text(
+                        'CUSTOM INSTRUCTIONS (OPTIONAL)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.5,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.grey.shade200),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        child: TextField(
+                          maxLines: 2,
+                          onChanged: (val) => controller.customPrompt.value = val,
+                          decoration: const InputDecoration(
+                            hintText: 'e.g. green velvet sofa, oak wooden coffee table, large window plants...',
+                            hintStyle: TextStyle(fontSize: 13, color: Colors.grey),
+                            border: InputBorder.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+
+                    const Text(
+                      'UPLOAD YOUR ROOM PHOTO',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    GestureDetector(
+                      onTap: () => controller.pickImage(),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: controller.selectedImage.value != null
+                              ? Colors.transparent
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(
+                            color: controller.selectedImage.value != null
+                                ? AppTheme.primaryBlue
+                                : Colors.grey.shade200,
+                            width: 2,
+                            style: BorderStyle.solid,
+                          ),
+                          image: controller.selectedImage.value != null
+                              ? DecorationImage(
+                                  image: FileImage(controller.selectedImage.value!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
+                        ),
+                        child: controller.selectedImage.value != null
+                            ? const SizedBox(height: 120)
+                            : const Column(
+                                children: [
+                                  Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 32,
+                                    color: Colors.grey,
+                                  ),
+                                  SizedBox(height: 12),
+                                  Text(
+                                    'Upload empty room',
+                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                  Text(
+                                    'The room you want to redesign',
+                                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
 
-            const Spacer(),
-
-            ElevatedButton(
-              onPressed: controller.isGenerating.value
-                  ? null
-                  : () => controller.generateDesign(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryBlue,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 64),
-                shape: RoundedRectangleBorder(
+            const SizedBox(height: 16),
+            
+            // Fixed CTA Button / Loading at the bottom
+            if (controller.isGenerating.value)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryBlue.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(24),
                 ),
-              ),
-              child: controller.isGenerating.value
-                  ? const SizedBox(
+                child: Column(
+                  children: [
+                    const SizedBox(
                       height: 24,
                       width: 24,
                       child: CircularProgressIndicator(
-                        color: Colors.white,
+                        color: AppTheme.primaryBlue,
                         strokeWidth: 2,
                       ),
-                    )
-                  : const Text(
-                      'Reimagine My Room',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
                     ),
-            ),
+                    const SizedBox(height: 12),
+                    Text(
+                      controller.progressMessage.value,
+                      style: const TextStyle(
+                        color: AppTheme.primaryBlue,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              )
+            else
+              ElevatedButton(
+                onPressed: () => controller.generateDesign(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 64),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                ),
+                child: const Text(
+                  'Reimagine My Room',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
             const SizedBox(height: 20),
           ],
         ),
@@ -521,49 +585,67 @@ class ReimagineUploadSheet extends StatelessWidget {
 
   Widget _buildStyleGrid(ReimagineController controller) {
     final styles = [
-      {'name': 'Modern', 'icon': Icons.home_outlined},
-      {'name': 'Scandinavian', 'icon': Icons.ac_unit},
+      {'name': 'Modern', 'icon': Icons.chair_outlined},
+      {'name': 'Scandinavian', 'icon': Icons.filter_hdr_outlined},
       {'name': 'Industrial', 'icon': Icons.precision_manufacturing_outlined},
       {'name': 'Bohemian', 'icon': Icons.wb_sunny_outlined},
+      {'name': 'Minimalist', 'icon': Icons.check_circle_outline},
+      {'name': 'Luxury', 'icon': Icons.workspace_premium_outlined},
     ];
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: styles.map((style) {
-        bool isSelected = controller.selectedStyle.value == style['name'];
-        return GestureDetector(
-          onTap: () => controller.selectedStyle.value = style['name'] as String,
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.primaryBlue : Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: isSelected
-                        ? AppTheme.primaryBlue
-                        : Colors.grey.shade200,
+    return SizedBox(
+      height: 85,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: styles.length,
+        itemBuilder: (context, index) {
+          final style = styles[index];
+          bool isSelected = controller.selectedStyle.value == style['name'];
+          return GestureDetector(
+            onTap: () {
+              controller.selectedStyle.value = style['name'] as String;
+              // If style reference was active, clear it when selecting a preset
+              controller.referenceStyleName.value = null;
+              controller.referenceImageUrl.value = null;
+            },
+            child: Container(
+              width: 100,
+              margin: const EdgeInsets.only(right: 12),
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? AppTheme.primaryBlue : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade200,
+                ),
+                boxShadow: isSelected
+                    ? [BoxShadow(color: AppTheme.primaryBlue.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))]
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    style['icon'] as IconData,
+                    color: isSelected ? Colors.white : Colors.grey.shade700,
+                    size: 20,
                   ),
-                ),
-                child: Icon(
-                  style['icon'] as IconData,
-                  color: isSelected ? Colors.white : Colors.grey,
-                ),
+                  const SizedBox(height: 6),
+                  Text(
+                    style['name'] as String,
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected ? Colors.white : Colors.grey.shade700,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                style['name'] as String,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  color: isSelected ? AppTheme.primaryBlue : Colors.grey,
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
+            ),
+          );
+        },
+      ),
     );
   }
 }

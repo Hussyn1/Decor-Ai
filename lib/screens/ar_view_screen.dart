@@ -33,11 +33,14 @@ import '../controllers/ar_view_controller.dart';
 import '../services/ar_core_bridge.dart';
 import '../core/ar_data.dart';
 import '../controllers/catalog_controller.dart';
+import '../controllers/room_scan_controller.dart';
+import '../widgets/room_scan_overlay.dart';
+import '../widgets/room_scan_result_panel.dart';
 import 'dart:io';
 
 class ArViewScreen extends StatefulWidget {
   final Project? project;
-  final String? initialModelUrl; // Added: Optional URL for generated model
+  final String? initialModelUrl;
 
   const ArViewScreen({super.key, this.project, this.initialModelUrl});
 
@@ -50,6 +53,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
   ARObjectManager? arObjectManager;
   final ProjectController _projectController = Get.put(ProjectController());
   final ArViewController _arController = Get.put(ArViewController());
+  final RoomScanController _scanController = Get.put(RoomScanController());
   final CatalogController _catalogController = Get.find<CatalogController>();
   ARAnchorManager? arAnchorManager;
   final _centerSurfaceNotifier = ValueNotifier<SurfaceType>(
@@ -443,7 +447,20 @@ class _ArViewScreenState extends State<ArViewScreen> {
                 const SizedBox(width: 24),
                 _buildCaptureButton(),
                 const SizedBox(width: 24),
-                _buildGlassCircleButton(Icons.view_in_ar, () {}),
+                _buildGlassCircleButton(
+                  Icons.radar,
+                  () {
+                    if (arSessionManager != null) {
+                      _scanController.scanRoom(arSessionManager!, nodes);
+                    } else {
+                      Get.snackbar(
+                        "Scan Unavailable",
+                        "Wait for AR camera session to initialize.",
+                        snackPosition: SnackPosition.BOTTOM,
+                      );
+                    }
+                  },
+                ),
               ],
             ),
           ),
@@ -509,6 +526,23 @@ class _ArViewScreenState extends State<ArViewScreen> {
                 child: LightEstimationBadge(estimate: _currentLightEstimate!),
               ),
             ),
+
+          // AI Room Scanner Overlay
+          Obx(() {
+            if (_scanController.isScanning.value) {
+              return const AiScanningOverlay();
+            }
+            return const SizedBox.shrink();
+          }),
+
+          // AI Room Scanner Results Panel
+          Obx(() {
+            final result = _scanController.scanResult.value;
+            if (result != null) {
+              return RoomScanResultPanel(result: result);
+            }
+            return const SizedBox.shrink();
+          }),
         ],
       ),
     );

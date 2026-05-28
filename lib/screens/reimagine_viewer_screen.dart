@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import '../core/app_theme.dart';
 
 class ReimagineViewerScreen extends StatefulWidget {
   final File originalImage;
@@ -31,14 +30,7 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
         children: [
           // The AI Generated Image (Bottom Layer)
           Positioned.fill(
-            child: CachedNetworkImage(
-              imageUrl: widget.generatedImageUrl,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => const Center(
-                child: CircularProgressIndicator(color: Colors.white),
-              ),
-              errorWidget: (context, url, error) => const Icon(Icons.error),
-            ),
+            child: _buildGeneratedImage(widget.generatedImageUrl),
           ),
 
           // The Original Image (Top Layer, Clipped)
@@ -143,6 +135,32 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Renders the AI-generated image from either a local file path or a URL.
+  Widget _buildGeneratedImage(String source) {
+    // HF API returns a local file path; Pollinations returns a URL
+    if (source.startsWith('/') ||
+        source.startsWith('file://') ||
+        source.contains('\\')) {
+      return Image.file(
+        File(source.replaceFirst('file://', '')),
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => const Center(
+          child: Icon(Icons.broken_image, color: Colors.white, size: 48),
+        ),
+      );
+    }
+    return CachedNetworkImage(
+      imageUrl: source,
+      fit: BoxFit.cover,
+      placeholder: (_, __) => const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      ),
+      errorWidget: (_, __, ___) => const Center(
+        child: Icon(Icons.error, color: Colors.white, size: 48),
       ),
     );
   }

@@ -32,10 +32,6 @@ class ApiConfig {
 
   static String get authEndpoint => '$backendBaseUrl/api/auth';
   static String get projectsEndpoint => '$backendBaseUrl/api/projects';
-  // Get your free API key from https://platform.stability.ai/
-  static const String stabilityApiKey = 'YOUR_API_KEY_HERE';
-
-  // The Stability AI endpoint for image-to-image
-  static const String stabilityBaseUrl =
-      'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/image-to-image';
+  // Stability AI API Key for virtual staging
+  static const String stabilityApiKey = 'sk-fISIZtnEZRgDXYmrQFj5jWZnHPcORaOIJ3MHmwsliQPvlAqE';
 }

@@ -9,6 +9,8 @@ class CatalogController extends GetxController {
   
   var furnitureItems = <Map<String, dynamic>>[].obs;
   var isLoading = true.obs;
+  
+  final List<Map<String, dynamic>> _unfilteredItems = [];
 
   @override
   void onInit() {
@@ -36,12 +38,63 @@ class CatalogController extends GetxController {
       }
       
       furnitureItems.assignAll(items);
+      _unfilteredItems.assignAll(items);
     } catch (e) {
       print("[CATALOG-LOG] Error loading catalog: $e");
       furnitureItems.assignAll(ArData.furniture);
+      _unfilteredItems.assignAll(ArData.furniture);
     } finally {
       isLoading.value = false;
     }
+  }
+
+  void filterByStyle(String style) {
+    if (style.isEmpty) {
+      resetFilters();
+      return;
+    }
+    final filtered = _unfilteredItems.where((item) {
+      final itemStyle = (item['style'] as String?) ?? '';
+      return itemStyle.toLowerCase().contains(style.toLowerCase());
+    }).toList();
+    furnitureItems.assignAll(filtered);
+  }
+
+  void filterByColor(String color) {
+    if (color.isEmpty) {
+      resetFilters();
+      return;
+    }
+    final filtered = _unfilteredItems.where((item) {
+      final itemColor = (item['color'] as String?) ?? '';
+      return itemColor.toLowerCase().contains(color.toLowerCase());
+    }).toList();
+    furnitureItems.assignAll(filtered);
+  }
+
+  void resetFilters() {
+    furnitureItems.assignAll(_unfilteredItems);
+  }
+
+  List<Map<String, dynamic>> getRecommendedItems(List<dynamic> recommendations) {
+    final recommended = <Map<String, dynamic>>[];
+    for (var rec in recommendations) {
+      // rec can be FurnitureRecommendation or dynamic
+      final recStyle = rec.style.toString().toLowerCase();
+      final recItem = rec.item.toString().toLowerCase();
+      
+      for (var item in _unfilteredItems) {
+        final itemStyle = ((item['style'] as String?) ?? '').toLowerCase();
+        final itemName = ((item['name'] as String?) ?? '').toLowerCase();
+        
+        if (itemStyle.contains(recStyle) || itemName.contains(recItem)) {
+          if (!recommended.contains(item)) {
+            recommended.add(item);
+          }
+        }
+      }
+    }
+    return recommended;
   }
 
   Future<void> addGeneratedModel({
@@ -68,6 +121,7 @@ class CatalogController extends GetxController {
 
     // Add to top of list
     furnitureItems.insert(0, newItem);
+    _unfilteredItems.insert(0, newItem);
     
     // Persist
     await _saveToStorage();

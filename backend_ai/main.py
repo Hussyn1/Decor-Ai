@@ -15,6 +15,10 @@ import subprocess
 import time
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+import base64
+from io import BytesIO
+from PIL import Image
+import google.generativeai as genai
 
 _executor = ThreadPoolExecutor(max_workers=3)
 
@@ -91,6 +95,28 @@ class StylingRecommendation(BaseModel):
 class StylingRequest(BaseModel):
     prompt: str
     room_type: Optional[str] = "Living Room"
+
+class RoomScanRequest(BaseModel):
+    image_base64: str
+    placed_furniture: List[FurnitureMetadata]
+    room_area: Optional[float] = None
+
+class WallColorDetection(BaseModel):
+    color_name: str
+    hex: str
+    location: str
+
+class RoomScanResult(BaseModel):
+    room_type: str
+    wall_colors: List[WallColorDetection]
+    lighting_condition: str
+    existing_style: str
+    harmony_score: int
+    furniture_recommendations: List[FurnitureRecommendation]
+    color_recommendations: List[ColorPaletteItem]
+    layout_tips: List[str]
+    conflicts: List[str]
+    overall_summary: str
 
 # --- CORE LOGIC ---
 
@@ -299,6 +325,191 @@ async def recommend_style(request: StylingRequest):
         return StylingRecommendation(**json.loads(clean_json))
     except Exception as e:
         return StylingRecommendation(color_palette=[], furniture_recommendations=[], overall_design_summary="Error")
+
+@app.post("/scan-room", response_model=RoomScanResult)
+async def scan_room(request: RoomScanRequest):
+    print(f"\n[AI-LOG] Scanning room with {len(request.placed_furniture)} items...")
+    
+    gemini_key = os.getenv("GEMINI_API_KEY")
+    if not gemini_key or gemini_key == "YOUR_GEMINI_API_KEY_HERE":
+        print("[AI-LOG] Gemini API Key not set or default placeholder. Using robust rich simulated recommendation response for testing.")
+        
+        # Build smart rich mock responses based on placed furniture styles and colors
+        placed_styles = [f.style for f in request.placed_furniture]
+        primary_style = placed_styles[0] if placed_styles else "Modern"
+        
+        placed_colors = [f.base_color for f in request.placed_furniture]
+        color_theme = placed_colors[0] if placed_colors else "Off-White"
+        
+        harmony_score = 80 if request.placed_furniture else 50
+        if len(request.placed_furniture) > 1:
+            uniq_styles = set(placed_styles)
+            if len(uniq_styles) > 1:
+                harmony_score = 65
+        
+        # Dynamic advice based on user placement
+        layout_tips = [
+            "Maintain at least 70cm of clearance around placed items to ensure smooth walking pathways.",
+            "Since your room has natural lighting, avoid blocking window areas with tall placed items.",
+            "Consider placing your key accent pieces against the main wall to anchor the layout."
+        ]
+        
+        conflicts = []
+        if len(set(placed_styles)) > 1:
+            conflicts.append(f"Style mismatch detected: Placed items blend multiple styles ({', '.join(set(placed_styles))}). Consider standardizing on {primary_style} for maximum visual harmony.")
+        
+        return RoomScanResult(
+            room_type="Living Room",
+            wall_colors=[
+                WallColorDetection(color_name="Warm Off-White", hex="#F5F2EB", location="main wall"),
+                WallColorDetection(color_name="Soft Grey Accent", hex="#E0E0E0", location="accent wall")
+            ],
+            lighting_condition="Bright natural lighting with warm neutral ambient tone",
+            existing_style=primary_style,
+            harmony_score=harmony_score,
+            furniture_recommendations=[
+                FurnitureRecommendation(
+                    item="Sofa",
+                    style=primary_style,
+                    color_suggestion="Beige" if primary_style != "Industrial" else "Charcoal Grey",
+                    why="Complements the primary style and serves as a solid foundation for the seating layout."
+                ),
+                FurnitureRecommendation(
+                    item="Coffee Table",
+                    style="Minimalist",
+                    color_suggestion="#D2B48C",
+                    why="A simple wooden coffee table introduces a natural element without cluttering the visual field."
+                ),
+                FurnitureRecommendation(
+                    item="Lounge Chair",
+                    style="Modern",
+                    color_suggestion="Olive Green",
+                    why="Adds a sophisticated pop of color that pairs beautifully with neutral backdrops."
+                )
+            ],
+            color_recommendations=[
+                ColorPaletteItem(
+                    name="Sage Green",
+                    hex="#8F9779",
+                    role="Accent Wall",
+                    why="Provides a calm, organic touch that complements wood textures and neutral colors."
+                ),
+                ColorPaletteItem(
+                    name="Terracotta",
+                    hex="#C26D51",
+                    role="Decor Highlights",
+                    why="Brings warmth and rustic richness when used in textiles, pillows, or art."
+                )
+            ],
+            layout_tips=layout_tips,
+            conflicts=conflicts,
+            overall_summary=f"A spacious and well-lit area with an initial {primary_style} styling direction. By coordinating wood finishes and aligning the furniture's layout to emphasize natural light entryways, you will create a beautifully harmonious, inviting, and highly functional living environment."
+        )
+
+    try:
+        if "base64," in request.image_base64:
+            header, encoded = request.image_base64.split(",", 1)
+        else:
+            encoded = request.image_base64
+        
+        image_data = base64.b64decode(encoded)
+        image = Image.open(BytesIO(image_data))
+        
+        genai.configure(api_key=gemini_key)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        
+        placed_str = json.dumps([f.dict() for f in request.placed_furniture], indent=2)
+        prompt = f"""
+        You are an elite interior designer. Analyze the uploaded image of a real-life room taken from our augmented reality (AR) app.
+        The user has also placed several 3D AR furniture models in this physical space.
+        
+        Here is the metadata of the placed 3D AR furniture:
+        {placed_str}
+        
+        Analyze both the physical room (visible in the photo) and the virtual furniture placed in it. You must return EXACTLY a JSON response containing:
+        1. 'room_type': E.g., 'Living Room', 'Bedroom', 'Office', 'Dining Room', etc.
+        2. 'wall_colors': A list of detected wall/ceiling/floor background colors including:
+           - 'color_name': descriptive name (e.g., 'Warm Beige', 'Navy Blue')
+           - 'hex': best-guess hex code (e.g., '#F5F5DC')
+           - 'location': where it is (e.g., 'main wall', 'accent wall', 'ceiling', 'floor')
+        3. 'lighting_condition': A brief summary of natural/artificial light and tone.
+        4. 'existing_style': The apparent style of the physical space (e.g., 'Contemporary', 'Traditional', 'Bohemian', 'Industrial').
+        5. 'harmony_score': An integer from 0 to 100 assessing style/color compatibility between the placed AR models and the real physical room.
+        6. 'furniture_recommendations': A list of 2-3 additional items from a catalog that would fit perfectly:
+           - 'item': furniture type (e.g., 'Sofa', 'Side Table', 'Rug', 'Floor Lamp')
+           - 'style': style recommendation (e.g., 'Modern Scandi', 'Rustic')
+           - 'color_suggestion': suggested color description
+           - 'why': design reasoning
+        7. 'color_recommendations': A list of 2 suggested paint colors or accent colors:
+           - 'name': color name
+           - 'hex': hex code
+           - 'role': e.g., 'Accent Wall', 'Trim Paint', 'Textile Accent'
+           - 'why': design justification
+        8. 'layout_tips': List of 3-4 spatial layout or arrangement guidelines based on the spatial constraints seen in the photo.
+        9. 'conflicts': List of any aesthetic/spatial clashes (e.g., style clashing, size scaling issues, blocked doorways).
+        10. 'overall_summary': A 2-3 sentence overview of the design potential.
+        
+        Your entire output MUST be a valid JSON object matching the schema below. Do not wrap in markdown or anything else:
+        {{
+          "room_type": "string",
+          "wall_colors": [
+            {{
+              "color_name": "string",
+              "hex": "string",
+              "location": "string"
+            }}
+          ],
+          "lighting_condition": "string",
+          "existing_style": "string",
+          "harmony_score": 85,
+          "furniture_recommendations": [
+            {{
+              "item": "string",
+              "style": "string",
+              "color_suggestion": "string",
+              "why": "string"
+            }}
+          ],
+          "color_recommendations": [
+            {{
+              "name": "string",
+              "hex": "string",
+              "role": "string",
+              "why": "string"
+            }}
+          ],
+          "layout_tips": [
+            "string"
+          ],
+          "conflicts": [
+            "string"
+          ],
+          "overall_summary": "string"
+        }}
+        """
+        
+        print("[AI-LOG] Sending image and context metadata to Gemini API...")
+        response = model.generate_content(
+            contents=[prompt, image],
+            generation_config={"response_mime_type": "application/json"}
+        )
+        
+        print("[AI-LOG] Gemini API response received.")
+        text_response = response.text.strip()
+        if text_response.startswith("```"):
+            if text_response.startswith("```json"):
+                text_response = text_response[7:]
+            else:
+                text_response = text_response[3:]
+            if text_response.endswith("```"):
+                text_response = text_response[:-3]
+        
+        parsed_data = json.loads(text_response.strip())
+        return RoomScanResult(**parsed_data)
+        
+    except Exception as e:
+        print(f"[AI-LOG] [ERROR] Gemini API failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Gemini room scan failed: {str(e)}")
 
 if __name__ == "__main__":
     import uvicorn
