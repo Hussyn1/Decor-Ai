@@ -147,7 +147,7 @@ class RoomScanService {
         Uri.parse('$baseUrl/scan-room'),
         headers: {'Content-Type': 'application/json'},
         body: requestBody,
-      ).timeout(const Duration(seconds: 45));
+      ).timeout(const Duration(seconds: 90));
 
       print("RoomScanService: Status code ${response.statusCode}");
       if (response.statusCode == 200) {

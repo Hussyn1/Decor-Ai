@@ -19,6 +19,7 @@ class SettingsController extends GetxController {
   // App Settings
   var isDarkMode = false.obs;
   var notificationsEnabled = true.obs;
+  var selectedLanguage = 'English (US)'.obs;
 
   @override
   void onInit() {
@@ -45,6 +46,7 @@ class SettingsController extends GetxController {
     // App
     isDarkMode.value = prefs.getBool('dark_mode') ?? false;
     notificationsEnabled.value = prefs.getBool('notifications') ?? true;
+    selectedLanguage.value = prefs.getString('language') ?? 'English (US)';
   }
 
   Future<void> updateARSetting(String key, bool value) async {
@@ -78,5 +80,17 @@ class SettingsController extends GetxController {
     await prefs.setBool('dark_mode', value);
     isDarkMode.value = value;
     Get.changeThemeMode(value ? ThemeMode.dark : ThemeMode.light);
+  }
+
+  Future<void> toggleNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications', value);
+    notificationsEnabled.value = value;
+  }
+
+  Future<void> changeLanguage(String lang) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language', lang);
+    selectedLanguage.value = lang;
   }
 }

@@ -1,3 +1,4 @@
+// python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload      
 import 'package:flutter/material.dart';
 import 'core/app_theme.dart';
 import 'package:get/get.dart';
@@ -5,8 +6,11 @@ import 'screens/auth/splash_screen.dart';
 import 'controllers/catalog_controller.dart';
 import 'controllers/settings_controller.dart';
 import 'controllers/project_controller.dart';
-void main() {
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   Get.put(SettingsController());
   runApp(const ARInteriorApp());
 }

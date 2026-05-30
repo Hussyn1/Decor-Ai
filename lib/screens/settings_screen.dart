@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import '../widgets/settings_tile.dart';
 import '../widgets/settings_group.dart';
+import 'privacy_security_screen.dart';
 import 'edit_profile_screen.dart';
 import 'ar_settings_screen.dart';
 import 'gen_settings_screen.dart';
@@ -62,15 +63,15 @@ class SettingsScreen extends StatelessWidget {
                     duration: const Duration(milliseconds: 500),
                   ),
                 ),
-                SettingsTile(
-                  icon: Icons.notifications_none,
-                  title: 'Notifications',
-                  onTap: () {},
-                ),
+                Obx(() => _buildNotificationsToggle(_settingsController)),
                 SettingsTile(
                   icon: Icons.lock_outline,
                   title: 'Privacy & Security',
-                  onTap: () {},
+                  onTap: () => Get.to(
+                    () => const PrivacySecurityScreen(),
+                    transition: Transition.fadeIn,
+                    duration: const Duration(milliseconds: 500),
+                  ),
                 ),
               ],
             ),
@@ -100,12 +101,12 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 Obx(() => _buildThemeToggle(_settingsController)),
-                SettingsTile(
+                Obx(() => SettingsTile(
                   icon: Icons.language_outlined,
                   title: 'Language',
-                  subtitle: 'English (US)',
-                  onTap: () {},
-                ),
+                  subtitle: _settingsController.selectedLanguage.value,
+                  onTap: () => _showLanguageSelector(context, _settingsController),
+                )),
               ],
             ),
 
@@ -329,6 +330,88 @@ class SettingsScreen extends StatelessWidget {
         onChanged: (val) => controller.toggleDarkMode(val),
         activeColor: AppTheme.primaryBlue,
       ),
+    );
+  }
+
+  Widget _buildNotificationsToggle(SettingsController controller) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: Colors.redAccent.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: const Icon(
+          Icons.notifications_none,
+          color: Colors.redAccent,
+          size: 22,
+        ),
+      ),
+      title: const Text(
+        'Notifications',
+        style: TextStyle(fontWeight: FontWeight.w500, fontSize: 16),
+      ),
+      trailing: Switch(
+        value: controller.notificationsEnabled.value,
+        onChanged: (val) => controller.toggleNotifications(val),
+        activeColor: AppTheme.primaryBlue,
+      ),
+    );
+  }
+
+  void _showLanguageSelector(BuildContext context, SettingsController controller) {
+    Get.bottomSheet(
+      Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Select Language',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Obx(() => Column(
+              children: [
+                _buildLanguageOption('English (US)', controller),
+                _buildLanguageOption('Urdu', controller),
+                _buildLanguageOption('Arabic', controller),
+              ],
+            )),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+      isScrollControlled: true,
+    );
+  }
+
+  Widget _buildLanguageOption(String lang, SettingsController controller) {
+    final isSelected = controller.selectedLanguage.value == lang;
+    return ListTile(
+      title: Text(
+        lang,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? AppTheme.primaryBlue : null,
+        ),
+      ),
+      trailing: isSelected 
+          ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryBlue) 
+          : null,
+      onTap: () {
+        controller.changeLanguage(lang);
+        Get.back();
+      },
     );
   }
 

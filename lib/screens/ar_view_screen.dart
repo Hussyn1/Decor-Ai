@@ -18,6 +18,8 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 import 'dart:async'; // Add this for Completer
 
 import '../core/app_theme.dart';
+import '../controllers/settings_controller.dart';
+import 'package:gal/gal.dart';
 
 import '../services/project_service.dart';
 import 'package:get/get.dart';
@@ -55,6 +57,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
   final ArViewController _arController = Get.put(ArViewController());
   final RoomScanController _scanController = Get.put(RoomScanController());
   final CatalogController _catalogController = Get.find<CatalogController>();
+  final SettingsController _settingsController = Get.find<SettingsController>();
+  Uint8List? _pendingThumbnailBytes;
   ARAnchorManager? arAnchorManager;
   final _centerSurfaceNotifier = ValueNotifier<SurfaceType>(
     SurfaceType.unknown,
@@ -92,6 +96,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
   bool _isModelCaching = false; // ✅ Track caching status
   String? _generatedModelUri; // ✅ Stores the specific generated local filename
   int _lastTapTimestamp = 0; // For temporal debouncing
+  bool _isCapturing = false; // ✅ Track capture snapshot status
+  bool _showShutterFlash = false; // ✅ Track camera shutter flash visibility
 
   // Unique session ID to track logs for this specific instance
   late String _sessionId;
@@ -123,6 +129,15 @@ class _ArViewScreenState extends State<ArViewScreen> {
   set _isRestored(bool value) => _arController.isRestored.value = value;
   bool get _isScanning => _arController.isScanning.value;
   set _isScanning(bool value) => _arController.isScanning.value = value;
+
+  PlaneDetectionConfig get _planeConfig {
+    final h = _settingsController.enableHorizontalPlanes.value;
+    final v = _settingsController.enableVerticalPlanes.value;
+    if (h && v) return PlaneDetectionConfig.horizontalAndVertical;
+    if (h) return PlaneDetectionConfig.horizontal;
+    if (v) return PlaneDetectionConfig.vertical;
+    return PlaneDetectionConfig.none;
+  }
 
   // Helper cast for data access
   double get _currentScale =>
@@ -259,7 +274,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
           // 1. Real AR View Component (Baseline)
           ARView(
             onARViewCreated: onARViewCreated,
-            planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
+            planeDetectionConfig: _planeConfig,
           ),
 
           if (_isModelCaching)
@@ -443,7 +458,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildGlassCircleButton(Icons.photo_library, () {}),
+                _buildGlassCircleButton(Icons.photo_library, _saveToGallery),
                 const SizedBox(width: 24),
                 _buildCaptureButton(),
                 const SizedBox(width: 24),
@@ -543,6 +558,16 @@ class _ArViewScreenState extends State<ArViewScreen> {
             }
             return const SizedBox.shrink();
           }),
+
+          // Camera Shutter Flash Effect
+          if (_showShutterFlash)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: Container(
+                  color: Colors.white.withOpacity(0.85),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -1118,24 +1143,87 @@ class _ArViewScreenState extends State<ArViewScreen> {
   // --- UI HELPER WIDGETS ---
   Widget _buildCaptureButton() {
     return GestureDetector(
-      onTap: () async {
-        var image = await arSessionManager!.snapshot();
-        showDialog(
-          context: context,
-          builder: (_) => Dialog(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image(image: image),
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Close"),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      onTap: _isCapturing
+          ? null
+          : () async {
+              setState(() {
+                _isCapturing = true;
+                _showShutterFlash = true;
+              });
+
+              // Play a quick haptic pulse for physical shutter button feel
+              HapticFeedback.mediumImpact();
+
+              // Clear the white flash quickly to mimic a real shutter speed
+              Future.delayed(const Duration(milliseconds: 100), () {
+                if (mounted) {
+                  setState(() {
+                    _showShutterFlash = false;
+                  });
+                }
+              });
+
+              try {
+                // Call platform capture (takes 1-2s of texture copying/compression)
+                var image = await arSessionManager!.snapshot();
+
+                if (!mounted) return;
+
+                try {
+                  final bytes = await _imageProviderToBytes(image);
+                  _pendingThumbnailBytes = bytes;
+                  if (!_currentProject.id.startsWith('temp_')) {
+                    _uploadThumbnail(bytes);
+                  }
+                } catch (e) {
+                  print("Error encoding/uploading snapshot: $e");
+                }
+
+                showDialog(
+                  context: context,
+                  builder: (_) => Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    backgroundColor: Colors.grey[900],
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(20),
+                          ),
+                          child: Image(image: image),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text(
+                              "Close",
+                              style: TextStyle(
+                                color: Colors.cyan,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              } catch (e) {
+                print("Snapshot error: $e");
+                _showStatus("Failed to capture snapshot: $e");
+              } finally {
+                if (mounted) {
+                  setState(() {
+                    _isCapturing = false;
+                  });
+                }
+              }
+            },
       child: Container(
         width: 80,
         height: 80,
@@ -1149,7 +1237,18 @@ class _ArViewScreenState extends State<ArViewScreen> {
             color: Colors.white,
             shape: BoxShape.circle,
           ),
-          child: const Icon(Icons.camera_alt, color: Colors.black, size: 40),
+          child: _isCapturing
+              ? const Center(
+                  child: SizedBox(
+                    width: 32,
+                    height: 32,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.black),
+                    ),
+                  ),
+                )
+              : const Icon(Icons.camera_alt, color: Colors.black, size: 40),
         ),
       ),
     );
@@ -1459,6 +1558,22 @@ class _ArViewScreenState extends State<ArViewScreen> {
       _currentProject.lastModified = DateTime.now();
 
       await _projectController.saveProject(_currentProject);
+
+      if (_pendingThumbnailBytes != null) {
+        _showStatus("Uploading thumbnail... 📤");
+        try {
+          final projectService = ProjectService();
+          final thumbnailUrl = await projectService.uploadThumbnail(_currentProject.id, _pendingThumbnailBytes!);
+          setState(() {
+            _currentProject.thumbnailPath = thumbnailUrl;
+          });
+          await _projectController.saveProject(_currentProject);
+          _pendingThumbnailBytes = null;
+          print("[AR-LOG] Thumbnail uploaded and linked to saved project: $thumbnailUrl");
+        } catch (e) {
+          print("Warning: Failed to upload pending thumbnail: $e");
+        }
+      }
 
       if (!mounted) return;
 
@@ -1770,11 +1885,84 @@ class _ArViewScreenState extends State<ArViewScreen> {
     print("BREADCRUMB: Enabling AR Realism Features (Occlusion/Lights)");
     try {
       await _arBridge.enableOcclusion(true);
-      await _arBridge.enableLightEstimation(true);
+      if (_settingsController.enableLightingEstimation.value) {
+        await _arBridge.enableLightEstimation(true);
+        _showStatus("Phase 1: Visual Realism active 👁️");
+      } else {
+        await _arBridge.enableLightEstimation(false);
+        _showStatus("Phase 1: Visual Realism active (Lighting Estimation: OFF) 👁️");
+      }
       print("DEBUG: Realism features enabled successfully");
-      _showStatus("Phase 1: Visual Realism active 👁️");
     } catch (e) {
       print("DEBUG: Realism features failed (device might not support): $e");
+    }
+  }
+
+  Future<Uint8List> _imageProviderToBytes(ImageProvider provider) async {
+    final Completer<Uint8List> completer = Completer<Uint8List>();
+    final ImageStream stream = provider.resolve(ImageConfiguration.empty);
+    late ImageStreamListener listener;
+    listener = ImageStreamListener((ImageInfo frame, bool sync) async {
+      final ByteData? byteData = await frame.image.toByteData(format: ImageByteFormat.png);
+      stream.removeListener(listener);
+      if (byteData != null) {
+        completer.complete(byteData.buffer.asUint8List());
+      } else {
+        completer.completeError(Exception("Failed to convert image to bytes"));
+      }
+    }, onError: (Object error, StackTrace? stackTrace) {
+      stream.removeListener(listener);
+      completer.completeError(error);
+    });
+    stream.addListener(listener);
+    return completer.future;
+  }
+
+  Future<void> _uploadThumbnail(Uint8List bytes) async {
+    try {
+      final projectService = ProjectService();
+      final thumbnailUrl = await projectService.uploadThumbnail(_currentProject.id, bytes);
+      setState(() {
+        _currentProject.thumbnailPath = thumbnailUrl;
+      });
+      
+      // Update controller's project list
+      final index = _projectController.projects.indexWhere((p) => p.id == _currentProject.id);
+      if (index >= 0) {
+        _projectController.projects[index] = _currentProject;
+      }
+      print("[AR-LOG] Thumbnail uploaded successfully to Cloudinary: $thumbnailUrl");
+    } catch (e) {
+      print("[AR-LOG] Error uploading thumbnail: $e");
+    }
+  }
+
+  Future<void> _saveToGallery() async {
+    if (arSessionManager == null) {
+      Get.snackbar('Not Ready', 'AR session not initialised yet');
+      return;
+    }
+    setState(() => _isCapturing = true);
+    HapticFeedback.mediumImpact();
+    try {
+      final image = await arSessionManager!.snapshot();
+      final bytes = await _imageProviderToBytes(image);
+      await Gal.putImageBytes(bytes, name: 'DecorAR_${DateTime.now().millisecondsSinceEpoch}.png');
+      Get.snackbar(
+        'Saved!',
+        'AR snapshot saved to your gallery 📸',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.black87,
+        colorText: Colors.white,
+      );
+    } catch (e) {
+      Get.snackbar(
+        'Error',
+        'Could not save to gallery: $e',
+        snackPosition: SnackPosition.BOTTOM,
+      );
+    } finally {
+      if (mounted) setState(() => _isCapturing = false);
     }
   }
 }

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'package:http/http.dart' as http;
@@ -233,5 +234,30 @@ class ProjectService {
     if (response.statusCode != 200) {
       throw Exception("Failed to delete project");
     }
+  }
+
+  /// Upload project thumbnail to backend
+  Future<String> uploadThumbnail(String projectId, Uint8List bytes) async {
+    final token = await _getToken();
+    if (token == null) throw Exception("Not authenticated");
+
+    final url = Uri.parse('$baseUrl/$projectId/thumbnail');
+    final request = http.MultipartRequest('POST', url);
+    request.headers['Authorization'] = 'Bearer $token';
+    request.files.add(http.MultipartFile.fromBytes(
+      'thumbnail',
+      bytes,
+      filename: 'thumbnail_${DateTime.now().millisecondsSinceEpoch}.png',
+    ));
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode != 200) {
+      throw Exception("Failed to upload thumbnail: ${response.body}");
+    }
+
+    final data = jsonDecode(response.body);
+    return data['thumbnailUrl'];
   }
 }

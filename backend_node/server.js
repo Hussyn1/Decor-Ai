@@ -10,9 +10,7 @@ const PORT = process.env.PORT || 5000;
 // Connect to Database
 connectDB();
 
-// Routes
-app.use('/api/auth', require('./src/routes/authRoutes'));
-app.use('/api/projects', require('./src/routes/projectRoutes'));
+
 
 // Serve static uploads folder
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

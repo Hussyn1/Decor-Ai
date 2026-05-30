@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
 const Project = require('../models/Project');
+const cloudinary = require('cloudinary').v2;
+
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // @desc    Get all user projects
 // @route   GET /api/projects
@@ -107,9 +115,55 @@ const deleteProject = async (req, res) => {
     }
 };
 
+// @desc    Upload a thumbnail image for a project
+// @route   POST /api/projects/:id/thumbnail
+// @access  Private
+const uploadThumbnail = async (req, res) => {
+    try {
+        if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+            return res.status(400).json({ message: 'Invalid Project ID format' });
+        }
+
+        const project = await Project.findById(req.params.id);
+        if (!project) {
+            return res.status(404).json({ message: 'Project not found' });
+        }
+        if (project.user.toString() !== req.user.id) {
+            return res.status(401).json({ message: 'User not authorized' });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'No image file provided' });
+        }
+
+        // Upload buffer to Cloudinary
+        const result = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { folder: 'decor_ar/thumbnails', resource_type: 'image' },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            stream.end(req.file.buffer);
+        });
+
+        // Patch project with Cloudinary URL
+        project.thumbnailUrl = result.secure_url;
+        await project.save();
+
+        console.log(`Thumbnail uploaded for project ${req.params.id}: ${result.secure_url}`);
+        res.status(200).json({ thumbnailUrl: result.secure_url });
+    } catch (error) {
+        console.error('Thumbnail upload error:', error);
+        res.status(500).json({ message: 'Server error during thumbnail upload' });
+    }
+};
+
 module.exports = {
     getProjects,
     createProject,
     updateProject,
     deleteProject,
+    uploadThumbnail,
 };

@@ -5,8 +5,8 @@ import '../../widgets/custom_text_field.dart';
 import '../../widgets/primary_button.dart';
 import '../../widgets/social_auth_button.dart';
 import 'signup_screen.dart';
+import 'forgot_password_screen.dart';
 import '../../controllers/auth_controller.dart';
-import '../home_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -124,7 +124,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {},
+                      onPressed: () {
+                        Get.to(() => const ForgotPasswordScreen());
+                      },
                       child: const Text(
                         'Forgot Password?',
                         style: TextStyle(
@@ -172,13 +174,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     children: [
                       SocialAuthButton(
                         text: 'Google',
-                        onPressed: () {},
+                        onPressed: () {
+                          _authController.socialLoginComingSoon('Google');
+                        },
                       ),
                       const SizedBox(width: 16),
                       SocialAuthButton(
                         text: 'Apple',
                         icon: Icons.apple,
-                        onPressed: () {},
+                        onPressed: () {
+                          _authController.socialLoginComingSoon('Apple');
+                        },
                       ),
                     ],
                   ),

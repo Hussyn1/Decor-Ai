@@ -6,6 +6,8 @@ import 'ar_view_screen.dart';
 import '2d_3d_builder.dart';
 import 'projects_screen.dart';
 import 'discover_screen.dart';
+import '../controllers/project_controller.dart';
+import '../services/project_service.dart';
 import 'settings_screen.dart';
 
 import 'ai_stylist_screen.dart';
@@ -130,6 +132,18 @@ class HomeDashboard extends StatefulWidget {
 }
 
 class _HomeDashboardState extends State<HomeDashboard> {
+  final ProjectController _projectController = Get.put(ProjectController());
+
+  /// Formats a DateTime as a human-readable relative string.
+  String _formatRelativeTime(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -379,140 +393,208 @@ class _HomeDashboardState extends State<HomeDashboard> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium),
-        TextButton(onPressed: () {}, child: const Text('See All')),
+        TextButton(
+          onPressed: () {
+            // Navigate to Projects tab (index 1)
+            final homeController = Get.find<HomeController>();
+            homeController.changeTabIndex(1);
+          },
+          child: const Text('See All'),
+        ),
       ],
     );
   }
 
   Widget _buildRecentProjectsList() {
-    return Column(
-      children: [
-        _buildProjectItem(
-          'Modern Living Room',
-          'Last edited 2h ago',
-          'IN PROGRESS',
-          'https://images.unsplash.com/photo-1554995207-c18c203602cb?q=80&w=2070',
-        ),
-        const SizedBox(height: 16),
-        _buildProjectItem(
-          'Kitchen Layout v2',
-          'Last edited Yesterday',
-          'COMPLETED',
-          'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?q=80&w=2070',
-        ),
-        const SizedBox(height: 16),
-        _buildProjectItem(
-          'Master Bedroom',
-          'Last edited 3 days ago',
-          'IN PROGRESS',
-          'https://images.unsplash.com/photo-1540518614846-7eded433c457?q=80&w=2070',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildProjectItem(
-    String title,
-    String subtitle,
-    String status,
-    String imageUrl,
-  ) {
-    bool isInProgress = status == 'IN PROGRESS';
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              width: 80,
-              height: 80,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => Container(
-                width: 80,
-                height: 80,
-                color: Colors.grey.shade100,
-                child: const Center(
-                  child: SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                ),
+    return Obx(() {
+      if (_projectController.isLoading.value) {
+        // Loading skeleton
+        return Column(
+          children: List.generate(3, (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              height: 100,
+              decoration: BoxDecoration(
+                color: Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(20),
               ),
-              errorWidget: (context, url, error) => Container(
-                width: 80,
-                height: 80,
-                color: Colors.grey.shade200,
-                child: const Icon(Icons.broken_image, color: Colors.grey),
+              child: const Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
+          )),
+        );
+      }
+
+      if (_projectController.projects.isEmpty) {
+        // Empty state
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 40),
+          child: Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
+                Icon(Icons.view_in_ar, size: 48, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
                 Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                  'No projects yet',
+                  style: TextStyle(
                     fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  subtitle,
-                  style: const TextStyle(color: Colors.grey, fontSize: 12),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isInProgress
-                        ? AppTheme.primaryBlue.withOpacity(0.1)
-                        : AppTheme.successGreen.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      color: isInProgress
-                          ? AppTheme.primaryBlue
-                          : AppTheme.successGreen,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  'Tap the AR button to start designing!',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Colors.grey.shade400,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_vert, color: Colors.grey),
-            constraints: const BoxConstraints(),
-            padding: EdgeInsets.zero,
-          ),
-        ],
+        );
+      }
+
+      // Show up to 3 most recent projects
+      final recentProjects = _projectController.projects.take(3).toList();
+      return Column(
+        children: recentProjects.map((project) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: _buildProjectItem(project),
+          );
+        }).toList(),
+      );
+    });
+  }
+
+  Widget _buildProjectItem(Project project) {
+    final String status = project.items.isEmpty ? 'NEW' : 'IN PROGRESS';
+    final bool isInProgress = status == 'IN PROGRESS';
+    final bool hasThumbnail = project.thumbnailPath != null && project.thumbnailPath!.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () {
+        Get.to(() => ArViewScreen(project: project));
+      },
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: hasThumbnail
+                  ? CachedNetworkImage(
+                      imageUrl: project.thumbnailPath!,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        width: 80,
+                        height: 80,
+                        color: Colors.grey.shade100,
+                        child: const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        width: 80,
+                        height: 80,
+                        color: Colors.grey.shade200,
+                        child: const Icon(Icons.broken_image, color: Colors.grey),
+                      ),
+                    )
+                  : Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.view_in_ar,
+                        color: AppTheme.primaryBlue,
+                        size: 36,
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    project.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  Text(
+                    'Last edited ${_formatRelativeTime(project.lastModified)}',
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isInProgress
+                          ? AppTheme.primaryBlue.withOpacity(0.1)
+                          : AppTheme.successGreen.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      status,
+                      style: TextStyle(
+                        color: isInProgress
+                            ? AppTheme.primaryBlue
+                            : AppTheme.successGreen,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              onPressed: () {
+                Get.to(() => ArViewScreen(project: project));
+              },
+              icon: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 16),
+              constraints: const BoxConstraints(),
+              padding: EdgeInsets.zero,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:ar_flutter_plugin/managers/ar_session_manager.dart';
 import 'package:ar_flutter_plugin/models/ar_node.dart';
@@ -21,6 +22,9 @@ class RoomScanController extends GetxController {
       isScanning.value = true;
       scanResult.value = null;
 
+      // Allow the UI to render the scanning overlay and start the animation loop smoothly first
+      await Future.delayed(const Duration(milliseconds: 350));
+
       print("RoomScanController: Capturing AR view snapshot...");
       final imageProvider = await sessionManager.snapshot();
       
@@ -29,7 +33,9 @@ class RoomScanController extends GetxController {
       }
 
       final Uint8List bytes = imageProvider.bytes;
-      final String base64Image = base64Encode(bytes);
+      
+      // Perform base64 encoding in a background isolate using compute to prevent UI thread lag
+      final String base64Image = await compute(base64Encode, bytes);
 
       print("RoomScanController: Gathering metadata of placed furniture...");
       final List<ai_rec.FurnitureMetadata> placedMetadata = [];

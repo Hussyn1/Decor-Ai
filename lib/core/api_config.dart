@@ -1,3 +1,5 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+
 enum Environment { local, ngrok, render }
 
 class ApiConfig {
@@ -32,6 +34,7 @@ class ApiConfig {
 
   static String get authEndpoint => '$backendBaseUrl/api/auth';
   static String get projectsEndpoint => '$backendBaseUrl/api/projects';
-  // Stability AI API Key for virtual staging
-  static const String stabilityApiKey = 'sk-fISIZtnEZRgDXYmrQFj5jWZnHPcORaOIJ3MHmwsliQPvlAqE';
+
+  // Stability AI API Key — loaded from .env file (never hardcode secrets in source)
+  static String get stabilityApiKey => dotenv.env['STABILITY_API_KEY'] ?? '';
 }

@@ -20,6 +20,27 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   final AuthController _authController = Get.find<AuthController>();
   final ImagePicker _picker = ImagePicker();
 
+  late TextEditingController _nameController;
+  late TextEditingController _emailController;
+  late TextEditingController _bioController;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = _authController.currentUser.value;
+    _nameController = TextEditingController(text: user?['username'] ?? '');
+    _emailController = TextEditingController(text: user?['email'] ?? '');
+    _bioController = TextEditingController(text: user?['bio'] ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _bioController.dispose();
+    super.dispose();
+  }
+
   Future<void> _pickImage() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
@@ -112,28 +133,42 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ],
             ),
             const SizedBox(height: 40),
-            const CustomTextField(
+            CustomTextField(
               label: 'Full Name',
               hint: 'Alex Thompson',
               prefixIcon: Icons.person_outline_rounded,
+              controller: _nameController,
             ),
             const SizedBox(height: 24),
-            const CustomTextField(
+            CustomTextField(
               label: 'Email Address',
               hint: 'alex.t@example.com',
               prefixIcon: Icons.email_outlined,
+              controller: _emailController,
             ),
             const SizedBox(height: 24),
-            const CustomTextField(
+            CustomTextField(
               label: 'Bio',
               hint: 'Interior designer & AR enthusiast',
               prefixIcon: Icons.edit_note_rounded,
+              controller: _bioController,
             ),
             const SizedBox(height: 48),
-            PrimaryButton(
-              text: 'Save Changes',
-              onPressed: () => Navigator.pop(context),
-            ),
+            Obx(() => _authController.isLoading.value
+                ? const Center(child: CircularProgressIndicator())
+                : PrimaryButton(
+                    text: 'Save Changes',
+                    onPressed: () async {
+                      final success = await _authController.updateProfile(
+                        _nameController.text,
+                        _emailController.text,
+                        _bioController.text,
+                      );
+                      if (success) {
+                        Get.back();
+                      }
+                    },
+                  )),
           ],
         ),
       ),

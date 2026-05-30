@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class HelpCenterScreen extends StatelessWidget {
   const HelpCenterScreen({super.key});
@@ -26,7 +27,32 @@ class HelpCenterScreen extends StatelessWidget {
           const Text('Need more help?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              final Uri emailLaunchUri = Uri(
+                scheme: 'mailto',
+                path: 'support@decorai.com',
+                query: 'subject=Decor%20AI%20Support%20Request',
+              );
+              try {
+                if (await canLaunchUrl(emailLaunchUri)) {
+                  await launchUrl(emailLaunchUri);
+                } else {
+                  Get.snackbar(
+                    'Error',
+                    'Could not launch email client.',
+                    backgroundColor: Colors.red.shade100,
+                    colorText: Colors.red.shade900,
+                  );
+                }
+              } catch (e) {
+                Get.snackbar(
+                  'Error',
+                  'Failed to open email client: $e',
+                  backgroundColor: Colors.red.shade100,
+                  colorText: Colors.red.shade900,
+                );
+              }
+            },
             icon: const Icon(Icons.email_outlined),
             label: const Text('Contact Support'),
           ),

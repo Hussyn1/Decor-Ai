@@ -226,6 +226,267 @@ class AuthController extends GetxController {
     }
   }
 
+  Future<bool> updateProfile(String username, String email, String bio) async {
+    if (username.trim().isEmpty || email.trim().isEmpty) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Validation Error',
+        message: 'Username and Email are required.',
+        type: AppErrorType.validation,
+      ));
+      return false;
+    }
+
+    isLoading.value = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        ApiErrorHandler.showError(const AppError(
+          title: 'Authentication Error',
+          message: 'Please login to update your profile.',
+          type: AppErrorType.auth,
+        ));
+        isLoading.value = false;
+        return false;
+      }
+
+      final response = await _connect.put(
+        '$baseUrl/update-profile',
+        {
+          'username': username.trim(),
+          'email': email.trim(),
+          'bio': bio.trim(),
+        },
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 20));
+
+      isLoading.value = false;
+
+      if (response.statusCode == 200) {
+        final data = response.body;
+        await _saveSession(data);
+        ApiErrorHandler.showSuccess("Success", "Profile updated successfully!");
+        return true;
+      } else {
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
+        );
+        ApiErrorHandler.showError(error);
+        return false;
+      }
+    } catch (e) {
+      isLoading.value = false;
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
+      return false;
+    }
+  }
+
+  Future<bool> forgotPassword(String email) async {
+    if (email.trim().isEmpty) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Validation Error',
+        message: 'Please enter your email address.',
+        type: AppErrorType.validation,
+      ));
+      return false;
+    }
+
+    isLoading.value = true;
+    try {
+      final response = await _connect.post(
+        '$baseUrl/forgot-password',
+        {'email': email.trim()},
+      ).timeout(const Duration(seconds: 20));
+
+      isLoading.value = false;
+
+      if (response.statusCode == 200) {
+        ApiErrorHandler.showSuccess("Success", response.body['message'] ?? "Reset code sent.");
+        return true;
+      } else {
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
+        );
+        ApiErrorHandler.showError(error);
+        return false;
+      }
+    } catch (e) {
+      isLoading.value = false;
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
+      return false;
+    }
+  }
+
+  Future<bool> resetPassword(String email, String code, String newPassword) async {
+    if (email.trim().isEmpty || code.trim().isEmpty || newPassword.trim().isEmpty) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Validation Error',
+        message: 'All fields are required.',
+        type: AppErrorType.validation,
+      ));
+      return false;
+    }
+
+    if (newPassword.length < 6) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Validation Error',
+        message: 'Password must be at least 6 characters long.',
+        type: AppErrorType.validation,
+      ));
+      return false;
+    }
+
+    isLoading.value = true;
+    try {
+      final response = await _connect.post(
+        '$baseUrl/reset-password',
+        {
+          'email': email.trim(),
+          'code': code.trim(),
+          'newPassword': newPassword,
+        },
+      ).timeout(const Duration(seconds: 20));
+
+      isLoading.value = false;
+
+      if (response.statusCode == 200) {
+        ApiErrorHandler.showSuccess("Success", "Password reset successful! Please log in.");
+        return true;
+      } else {
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
+        );
+        ApiErrorHandler.showError(error);
+        return false;
+      }
+    } catch (e) {
+      isLoading.value = false;
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
+      return false;
+    }
+  }
+
+  Future<bool> changePassword(String currentPassword, String newPassword) async {
+    if (currentPassword.trim().isEmpty || newPassword.trim().isEmpty) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Validation Error',
+        message: 'Please fill in all fields.',
+        type: AppErrorType.validation,
+      ));
+      return false;
+    }
+
+    if (newPassword.length < 6) {
+      ApiErrorHandler.showError(const AppError(
+        title: 'Validation Error',
+        message: 'New password must be at least 6 characters long.',
+        type: AppErrorType.validation,
+      ));
+      return false;
+    }
+
+    isLoading.value = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        ApiErrorHandler.showError(const AppError(
+          title: 'Authentication Error',
+          message: 'Please login first.',
+          type: AppErrorType.auth,
+        ));
+        isLoading.value = false;
+        return false;
+      }
+
+      final response = await _connect.put(
+        '$baseUrl/change-password',
+        {
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        },
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 20));
+
+      isLoading.value = false;
+
+      if (response.statusCode == 200) {
+        ApiErrorHandler.showSuccess("Success", "Password changed successfully!");
+        return true;
+      } else {
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
+        );
+        ApiErrorHandler.showError(error);
+        return false;
+      }
+    } catch (e) {
+      isLoading.value = false;
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
+      return false;
+    }
+  }
+
+  Future<bool> deleteAccount() async {
+    isLoading.value = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+
+      if (token == null) {
+        ApiErrorHandler.showError(const AppError(
+          title: 'Authentication Error',
+          message: 'Please login first.',
+          type: AppErrorType.auth,
+        ));
+        isLoading.value = false;
+        return false;
+      }
+
+      final response = await _connect.delete(
+        '$baseUrl/delete-account',
+        headers: {'Authorization': 'Bearer $token'},
+      ).timeout(const Duration(seconds: 20));
+
+      isLoading.value = false;
+
+      if (response.statusCode == 200) {
+        await logout();
+        ApiErrorHandler.showSuccess("Success", "Your account has been deleted.");
+        return true;
+      } else {
+        final error = ApiErrorHandler.handleStatusCode(
+          response.statusCode ?? 500,
+          response.body,
+        );
+        ApiErrorHandler.showError(error);
+        return false;
+      }
+    } catch (e) {
+      isLoading.value = false;
+      final error = ApiErrorHandler.handleException(e);
+      ApiErrorHandler.showError(error);
+      return false;
+    }
+  }
+
+  void socialLoginComingSoon(String provider) {
+    ApiErrorHandler.showSuccess(
+      "Coming Soon",
+      "$provider Sign-In is coming soon. Please use email and password.",
+    );
+  }
+
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
