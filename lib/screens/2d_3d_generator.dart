@@ -9,7 +9,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(ThreeDGeneratorController());
+    final controller = Get.find<ThreeDGeneratorController>();
 
     return Scaffold(
       appBar: AppBar(
@@ -156,6 +156,28 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                             "${controller.progress.value}% Complete",
                             style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
                           ),
+                          const SizedBox(height: 15),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.amber.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.info_outline, color: Colors.amber),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    "You can safely close the app or leave this screen. We will send you a push notification as soon as your 3D model is ready to place in AR!",
+                                    style: TextStyle(fontSize: 12, height: 1.4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 10),
                         ],
                       ),
                     ),

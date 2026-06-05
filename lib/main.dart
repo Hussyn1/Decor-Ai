@@ -6,6 +6,7 @@ import 'screens/auth/splash_screen.dart';
 import 'controllers/catalog_controller.dart';
 import 'controllers/settings_controller.dart';
 import 'controllers/project_controller.dart';
+import 'controllers/three_d_generator_controller.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'services/fcm_service.dart';
@@ -33,6 +34,7 @@ class ARInteriorApp extends StatelessWidget {
       initialBinding: BindingsBuilder(() {
         Get.put(CatalogController());
         Get.put(ProjectController());
+        Get.put(ThreeDGeneratorController());
       }),
       home: const SplashScreen(),
     ));

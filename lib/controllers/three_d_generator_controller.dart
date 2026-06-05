@@ -7,6 +7,7 @@ import '../services/tripoSr.dart';
 import '../core/api_error_handler.dart';
 import 'catalog_controller.dart';
 import 'settings_controller.dart';
+import '../services/fcm_service.dart';
 
 class ThreeDGeneratorController extends GetxController {
   var isGenerating = false.obs;
@@ -42,10 +43,20 @@ class ThreeDGeneratorController extends GetxController {
       final settingsController = Get.find<SettingsController>();
       print('[CONTROLLER-LOG] Starting 3D generation process with Quality: ${settingsController.generationQuality.value}, Res: ${settingsController.textureResolution.value}');
       
+      // Get the FCM token for background notifications
+      String? fcmToken;
+      try {
+        fcmToken = await FcmService().getToken();
+        print('[CONTROLLER-LOG] FCM Token for task: $fcmToken');
+      } catch (fcmErr) {
+        print('[CONTROLLER-LOG] Failed to fetch FCM token: $fcmErr');
+      }
+
       final taskId = await FurnitureAiService.start3DGeneration(
         selectedImage.value!,
         quality: settingsController.generationQuality.value,
         resolution: settingsController.textureResolution.value,
+        fcmToken: fcmToken,
       );
       print('[CONTROLLER-LOG] Task started successfully. TaskID: $taskId');
       

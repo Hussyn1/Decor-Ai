@@ -40,10 +40,31 @@ cloudinary.config(
 
 # Initialize Firebase Admin SDK for push notifications
 try:
-    _sa_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "serviceAccountKey.json")
-    _cred = credentials.Certificate(_sa_path)
-    firebase_admin.initialize_app(_cred)
-    print("[AI-LOG] ✅ Firebase Admin SDK initialized")
+    firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
+    firebase_b64 = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64")
+    
+    if firebase_json:
+        print("[AI-LOG] Loading Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON env var")
+        cred_dict = json.loads(firebase_json)
+        _cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(_cred)
+        print("[AI-LOG] ✅ Firebase Admin SDK initialized from JSON env")
+    elif firebase_b64:
+        print("[AI-LOG] Loading Firebase credentials from FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 env var")
+        import base64
+        decoded = base64.b64decode(firebase_b64).decode('utf-8')
+        cred_dict = json.loads(decoded)
+        _cred = credentials.Certificate(cred_dict)
+        firebase_admin.initialize_app(_cred)
+        print("[AI-LOG] ✅ Firebase Admin SDK initialized from Base64 env")
+    else:
+        _sa_path = os.getenv("FIREBASE_SERVICE_ACCOUNT_PATH", "serviceAccountKey.json")
+        if os.path.exists(_sa_path):
+            _cred = credentials.Certificate(_sa_path)
+            firebase_admin.initialize_app(_cred)
+            print(f"[AI-LOG] ✅ Firebase Admin SDK initialized from file: {_sa_path}")
+        else:
+            print(f"[AI-LOG] ⚠️ serviceAccountKey.json not found at {_sa_path} and no environment variables set.")
 except Exception as _fe:
     print(f"[AI-LOG] ⚠️ Firebase init failed (FCM disabled): {_fe}")
 
