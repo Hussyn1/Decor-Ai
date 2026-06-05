@@ -1,0 +1,13 @@
+fastapi
+uvicorn[standard]
+pydantic
+numpy
+scipy
+tripo3d
+python-dotenv
+python-multipart
+requests
+cloudinary
+google-genai
+Pillow
+firebase-admin

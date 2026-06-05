@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "416639128413",
+    "project_id": "decor-ar-e3101",
+    "storage_bucket": "decor-ar-e3101.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:416639128413:android:22a55dfca44c6300a08eb4",
+        "android_client_info": {
+          "package_name": "com.example.decor_ar_fyp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOl4hz39BDUAw9ivTK-vDHzjw-iGQX0e8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
