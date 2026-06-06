@@ -548,11 +548,12 @@ Be concise. No explanations outside the JSON.
             ],
             config=genai_types.GenerateContentConfig(
                 response_mime_type="application/json",
-                max_output_tokens=1024,
+                max_output_tokens=2048,
                 temperature=0.2,
             )
         )
-        
+        print(f"[AI-LOG] Raw Gemini response: {text_response[:500]}")
+        parsed_data = json.loads(text_response.strip())
         print("[AI-LOG] Gemini API response received.")
         text_response = response.text.strip()
         if text_response.startswith("```"):
