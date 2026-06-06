@@ -18,6 +18,18 @@ from concurrent.futures import ThreadPoolExecutor
 import base64
 from io import BytesIO
 from PIL import Image
+def compress_image_for_gemini(base64_str: str, max_size: int = 800) -> bytes:
+    if "base64," in base64_str:
+        _, encoded = base64_str.split(",", 1)
+    else:
+        encoded = base64_str
+    image_data = base64.b64decode(encoded)
+    img = Image.open(BytesIO(image_data))
+    if max(img.size) > max_size:
+        img.thumbnail((max_size, max_size), Image.LANCZOS)
+    output = BytesIO()
+    img.convert("RGB").save(output, format="JPEG", quality=75, optimize=True)
+    return output.getvalue()
 from google import genai
 from google.genai import types as genai_types
 import firebase_admin
@@ -80,6 +92,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # --- BACKGROUND TASKS TRACKING ---
 # Dictionary to store task status: {task_id: {"status": str, "progress": int, "message": str, "result": str}}
 TASKS = {}
+SCAN_CACHE = {}
+
+import hashlib
 
 # --- DATA MODELS ---
 
@@ -488,96 +503,53 @@ async def scan_room(request: RoomScanRequest):
             conflicts=conflicts,
             overall_summary=f"A spacious and well-lit area with an initial {primary_style} styling direction. By coordinating wood finishes and aligning the furniture's layout to emphasize natural light entryways, you will create a beautifully harmonious, inviting, and highly functional living environment."
         )
+        cache_key = hashlib.md5(
+        (request.image_base64[:500] + str(sorted([f.id for f in request.placed_furniture]))).encode()
+    ).hexdigest()
+    
+    if cache_key in SCAN_CACHE:
+        print("[AI-LOG] Cache hit — skipping Gemini call")
+        return SCAN_CACHE[cache_key]
 
     try:
-        if "base64," in request.image_base64:
-            header, encoded = request.image_base64.split(",", 1)
-        else:
-            encoded = request.image_base64
+        # Compress image before sending
+        image_data = compress_image_for_gemini(request.image_base64)
         
-        image_data = base64.b64decode(encoded)
+        # Use async client
+        client = genai.AsyncClient(api_key=gemini_key)
         
-        client = genai.Client(api_key=gemini_key)
+        placed_str = json.dumps([f.dict() for f in request.placed_furniture])
         
-        placed_str = json.dumps([f.dict() for f in request.placed_furniture], indent=2)
+        # Shorter prompt — no redundant schema example
         prompt = f"""
-        You are an elite interior designer. Analyze the uploaded image of a real-life room taken from our augmented reality (AR) app.
-        The user has also placed several 3D AR furniture models in this physical space.
+You are an interior designer. Analyze this room image and the placed AR furniture below.
+Return a single JSON object with these exact fields:
+- room_type (string)
+- wall_colors (array of {{color_name, hex, location}})
+- lighting_condition (string)
+- existing_style (string)
+- harmony_score (integer 0-100)
+- furniture_recommendations (array of {{item, style, color_suggestion, why}}, max 3)
+- color_recommendations (array of {{name, hex, role, why}}, max 2)
+- layout_tips (array of 3 strings)
+- conflicts (array of strings)
+- overall_summary (string, max 2 sentences)
+
+Placed AR furniture: {placed_str}
+Be concise. No explanations outside the JSON.
+"""
         
-        Here is the metadata of the placed 3D AR furniture:
-        {placed_str}
-        
-        Analyze both the physical room (visible in the photo) and the virtual furniture placed in it. You must return EXACTLY a JSON response containing:
-        1. 'room_type': E.g., 'Living Room', 'Bedroom', 'Office', 'Dining Room', etc.
-        2. 'wall_colors': A list of detected wall/ceiling/floor background colors including:
-           - 'color_name': descriptive name (e.g., 'Warm Beige', 'Navy Blue')
-           - 'hex': best-guess hex code (e.g., '#F5F5DC')
-           - 'location': where it is (e.g., 'main wall', 'accent wall', 'ceiling', 'floor')
-        3. 'lighting_condition': A brief summary of natural/artificial light and tone.
-        4. 'existing_style': The apparent style of the physical space (e.g., 'Contemporary', 'Traditional', 'Bohemian', 'Industrial').
-        5. 'harmony_score': An integer from 0 to 100 assessing style/color compatibility between the placed AR models and the real physical room.
-        6. 'furniture_recommendations': A list of 2-3 additional items from a catalog that would fit perfectly:
-           - 'item': furniture type (e.g., 'Sofa', 'Side Table', 'Rug', 'Floor Lamp')
-           - 'style': style recommendation (e.g., 'Modern Scandi', 'Rustic')
-           - 'color_suggestion': suggested color description
-           - 'why': design reasoning
-        7. 'color_recommendations': A list of 2 suggested paint colors or accent colors:
-           - 'name': color name
-           - 'hex': hex code
-           - 'role': e.g., 'Accent Wall', 'Trim Paint', 'Textile Accent'
-           - 'why': design justification
-        8. 'layout_tips': List of 3-4 spatial layout or arrangement guidelines based on the spatial constraints seen in the photo.
-        9. 'conflicts': List of any aesthetic/spatial clashes (e.g., style clashing, size scaling issues, blocked doorways).
-        10. 'overall_summary': A 2-3 sentence overview of the design potential.
-        
-        Your entire output MUST be a valid JSON object matching the schema below. Do not wrap in markdown or anything else:
-        {{
-          "room_type": "string",
-          "wall_colors": [
-            {{
-              "color_name": "string",
-              "hex": "string",
-              "location": "string"
-            }}
-          ],
-          "lighting_condition": "string",
-          "existing_style": "string",
-          "harmony_score": 85,
-          "furniture_recommendations": [
-            {{
-              "item": "string",
-              "style": "string",
-              "color_suggestion": "string",
-              "why": "string"
-            }}
-          ],
-          "color_recommendations": [
-            {{
-              "name": "string",
-              "hex": "string",
-              "role": "string",
-              "why": "string"
-            }}
-          ],
-          "layout_tips": [
-            "string"
-          ],
-          "conflicts": [
-            "string"
-          ],
-          "overall_summary": "string"
-        }}
-        """
-        
-        print("[AI-LOG] Sending image and context metadata to Gemini API...")
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
+        print("[AI-LOG] Sending image to Gemini API...")
+        response = await client.models.generate_content(
+            model='gemini-2.0-flash',
             contents=[
                 prompt,
                 genai_types.Part.from_bytes(data=image_data, mime_type='image/jpeg')
             ],
             config=genai_types.GenerateContentConfig(
-                response_mime_type="application/json"
+                response_mime_type="application/json",
+                max_output_tokens=1024,
+                temperature=0.2,
             )
         )
         
@@ -592,7 +564,9 @@ async def scan_room(request: RoomScanRequest):
                 text_response = text_response[:-3]
         
         parsed_data = json.loads(text_response.strip())
-        return RoomScanResult(**parsed_data)
+        result= RoomScanResult(**parsed_data)
+        SCAN_CACHE[cache_key] = result  
+        return result                    # then return
         
     except Exception as e:
         print(f"[AI-LOG] [ERROR] Gemini API failed: {str(e)}")
