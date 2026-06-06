@@ -541,7 +541,7 @@ Be concise. No explanations outside the JSON.
         
         print("[AI-LOG] Sending image to Gemini API...")
         response = await client.models.generate_content(
-            model='gemini-2.0-flash',
+            model='gemini-2.5-flash',
             contents=[
                 prompt,
                 genai_types.Part.from_bytes(data=image_data, mime_type='image/jpeg')
