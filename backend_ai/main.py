@@ -552,10 +552,20 @@ Be concise. No explanations outside the JSON.
                 temperature=0.2,
             )
         )
-        print(f"[AI-LOG] Raw Gemini response: {text_response[:500]}")
-        parsed_data = json.loads(text_response.strip())
         print("[AI-LOG] Gemini API response received.")
-        text_response = response.text.strip()
+        print(f"[AI-LOG] Candidates: {response.candidates}")
+        
+        if not response.candidates:
+            raise Exception("Gemini returned no candidates")
+        
+        candidate = response.candidates[0]
+        print(f"[AI-LOG] Finish reason: {candidate.finish_reason}")
+        
+        if candidate.finish_reason.name not in ("STOP", "MAX_TOKENS"):
+            raise Exception(f"Gemini blocked response: {candidate.finish_reason.name}")
+        
+        text_response = candidate.content.parts[0].text.strip()
+        print(f"[AI-LOG] Raw response preview: {text_response[:200]}")
         if text_response.startswith("```"):
             if text_response.startswith("```json"):
                 text_response = text_response[7:]
