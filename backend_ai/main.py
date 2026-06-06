@@ -503,7 +503,7 @@ async def scan_room(request: RoomScanRequest):
             conflicts=conflicts,
             overall_summary=f"A spacious and well-lit area with an initial {primary_style} styling direction. By coordinating wood finishes and aligning the furniture's layout to emphasize natural light entryways, you will create a beautifully harmonious, inviting, and highly functional living environment."
         )
-        cache_key = hashlib.md5(
+    cache_key = hashlib.md5(
         (request.image_base64[:500] + str(sorted([f.id for f in request.placed_furniture]))).encode()
     ).hexdigest()
     
