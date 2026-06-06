@@ -516,7 +516,7 @@ async def scan_room(request: RoomScanRequest):
         image_data = compress_image_for_gemini(request.image_base64)
         
         # Use async client
-        client = genai.AsyncClient(api_key=gemini_key)
+        client = genai.Client(api_key=gemini_key)
         
         placed_str = json.dumps([f.dict() for f in request.placed_furniture])
         
@@ -540,7 +540,7 @@ Be concise. No explanations outside the JSON.
 """
         
         print("[AI-LOG] Sending image to Gemini API...")
-        response = await client.models.generate_content(
+        response = client.models.generate_content(
             model='gemini-2.5-flash',
             contents=[
                 prompt,
