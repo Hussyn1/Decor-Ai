@@ -96,6 +96,26 @@ SCAN_CACHE = {}
 
 import hashlib
 
+# ── Floor Plan models ─────────────────────────────────────────────────────────
+
+class PlacedElement(BaseModel):
+    id: str
+    type: str           # "furniture" | "door" | "window"
+    x_meters: float
+    z_meters: float
+    width_meters: float
+    depth_meters: float
+    rotation_deg: float = 0.0
+
+class FloorPlanRequest(BaseModel):
+    project_id: str
+    width_meters: float
+    depth_meters: float
+    height_meters: float = 2.4
+    placed_elements: List[PlacedElement] = []
+    style_preference: Optional[str] = "Modern"
+    room_type: Optional[str] = "Living Room"
+
 # --- DATA MODELS ---
 
 class FurnitureMetadata(BaseModel):
@@ -582,7 +602,160 @@ Be concise. No explanations outside the JSON.
     except Exception as e:
         print(f"[AI-LOG] [ERROR] Gemini API failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Gemini room scan failed: {str(e)}")
+@app.post("/floor-plan-suggestions")
+async def floor_plan_suggestions(request: FloorPlanRequest):
+    print(f"\n[AI-LOG] Floor plan suggestions for {request.width_meters}x{request.depth_meters}m room")
 
+    gemini_key = os.getenv("GEMINI_API_KEY")
+
+    # ── Fallback if no Gemini key (mirrors your /scan-room pattern) ───────────
+    if not gemini_key or gemini_key == "YOUR_GEMINI_API_KEY_HERE":
+        print("[AI-LOG] Gemini key not set — returning mock suggestions")
+        return {
+            "success": True,
+            "suggestions": [
+                {
+                    "item": "Sofa",
+                    "x_meters": round(request.width_meters * 0.5, 2),
+                    "z_meters": round(request.depth_meters * 0.25, 2),
+                    "width_meters": 2.1,
+                    "depth_meters": 0.9,
+                    "rotation_deg": 0,
+                    "why": "Centred against the main wall for best sightlines.",
+                    "priority": 1,
+                },
+                {
+                    "item": "Coffee table",
+                    "x_meters": round(request.width_meters * 0.5, 2),
+                    "z_meters": round(request.depth_meters * 0.42, 2),
+                    "width_meters": 1.1,
+                    "depth_meters": 0.6,
+                    "rotation_deg": 0,
+                    "why": "Placed in front of sofa with 0.45 m clearance.",
+                    "priority": 1,
+                },
+                {
+                    "item": "TV unit",
+                    "x_meters": round(request.width_meters * 0.5, 2),
+                    "z_meters": round(request.depth_meters * 0.08, 2),
+                    "width_meters": 1.8,
+                    "depth_meters": 0.5,
+                    "rotation_deg": 0,
+                    "why": "Opposite the sofa — natural focal wall.",
+                    "priority": 1,
+                },
+            ],
+        }
+
+    # ── Build placed-elements summary for the prompt ──────────────────────────
+    placed_summary = "None yet."
+    if request.placed_elements:
+        lines = []
+        for el in request.placed_elements:
+            if el.type == "furniture":
+                lines.append(
+                    f"  - {el.width_meters}m × {el.depth_meters}m furniture "
+                    f"at ({el.x_meters:.1f}, {el.z_meters:.1f}), rotated {el.rotation_deg}°"
+                )
+            elif el.type == "door":
+                lines.append(f"  - Door at ({el.x_meters:.1f}, {el.z_meters:.1f})")
+            elif el.type == "window":
+                lines.append(f"  - Window at ({el.x_meters:.1f}, {el.z_meters:.1f})")
+        placed_summary = "\n".join(lines)
+
+    prompt = f"""
+You are an expert interior designer. Suggest optimal furniture placement for this room.
+
+ROOM SPECS:
+- Size: {request.width_meters}m wide × {request.depth_meters}m deep × {request.height_meters}m high
+- Area: {round(request.width_meters * request.depth_meters, 1)} m²
+- Type: {request.room_type}
+- Style: {request.style_preference}
+
+ALREADY PLACED:
+{placed_summary}
+
+COORDINATE SYSTEM:
+- Origin (0,0) = top-left corner of the room
+- X axis = room width  (0 → {request.width_meters})
+- Z axis = room depth  (0 → {request.depth_meters})
+- Item positions are their CENTER point
+
+PLACEMENT RULES:
+1. Minimum 0.8m walkway clearance between items
+2. Keep items at least 0.05m from walls (wall-hugging items like TV units may be 0.25m from wall)
+3. Do not overlap any already-placed element
+4. Sofa should face the room's main focal point
+5. Prioritise traffic flow from door area
+
+Return ONLY a valid JSON array — no markdown, no explanation.
+Maximum 5 items. Each object must have exactly these keys:
+[
+  {{
+    "item": "string",
+    "x_meters": float,
+    "z_meters": float,
+    "width_meters": float,
+    "depth_meters": float,
+    "rotation_deg": float,
+    "why": "one sentence",
+    "priority": 1 | 2 | 3
+  }}
+]
+"""
+
+    try:
+        client = genai.Client(api_key=gemini_key)
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[prompt],
+            config=genai_types.GenerateContentConfig(
+                response_mime_type="application/json",
+                max_output_tokens=1024,
+                temperature=0.3,
+            ),
+        )
+
+        if not response.candidates:
+            raise Exception("Gemini returned no candidates")
+
+        candidate = response.candidates[0]
+        if candidate.finish_reason.name not in ("STOP", "MAX_TOKENS"):
+            raise Exception(f"Gemini blocked: {candidate.finish_reason.name}")
+
+        raw = candidate.content.parts[0].text.strip()
+        print(f"[AI-LOG] Floor plan raw response: {raw[:300]}")
+
+        # Strip accidental markdown fences
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        raw = raw.strip().rstrip("```").strip()
+
+        suggestions = json.loads(raw)
+
+        # Clamp every suggestion inside the room bounds
+        for s in suggestions:
+            hw = s.get("width_meters", 0.5) / 2
+            hd = s.get("depth_meters", 0.5) / 2
+            s["x_meters"] = round(
+                max(hw, min(request.width_meters - hw, s["x_meters"])), 2
+            )
+            s["z_meters"] = round(
+                max(hd, min(request.depth_meters - hd, s["z_meters"])), 2
+            )
+
+        print(f"[AI-LOG] Returning {len(suggestions)} floor plan suggestions")
+        return {"success": True, "suggestions": suggestions}
+
+    except json.JSONDecodeError as e:
+        print(f"[AI-LOG] JSON parse error: {e} | raw: {raw[:200]}")
+        return {"success": False, "suggestions": [], "error": "AI returned invalid JSON"}
+    except Exception as e:
+        print(f"[AI-LOG] Floor plan suggestions error: {e}")
+        return {"success": False, "suggestions": [], "error": str(e)}
 if __name__ == "__main__":
     import uvicorn
     port = int(os.getenv("PORT", 8000))
