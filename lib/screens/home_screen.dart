@@ -1,3 +1,4 @@
+import 'package:decor_ar_fyp/screens/home_planner/home_planner_entry_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../core/app_theme.dart';
@@ -72,7 +73,10 @@ class HomeScreen extends StatelessWidget {
               child: FloatingActionButton(
                 heroTag: 'home_fab',
                 onPressed: () {
-                  Get.to(() => const ArViewScreen());
+                  Get.to(
+                    () => const ArViewScreen(),
+                    transition: Transition.noTransition,
+                  );
                 },
                 backgroundColor: AppTheme.primaryBlue,
                 elevation: 10,
@@ -247,7 +251,10 @@ class _HomeDashboardState extends State<HomeDashboard> {
           children: [
             Expanded(
               child: GestureDetector(
-                onTap: () => Get.to(() => const ArMeasureScreen()),
+                onTap: () => Get.to(
+                  () => const ArMeasureScreen(),
+                  transition: Transition.noTransition,
+                ),
                 child: _buildToolCard(
                   'AR Measure',
                   'Real-time dimensions',
@@ -274,6 +281,18 @@ class _HomeDashboardState extends State<HomeDashboard> {
                 ),
               ),
             ),
+            Expanded(
+  child: GestureDetector(
+    onTap: () => Get.to(() => const HomePlannerEntryScreen()),
+    child: _buildToolCard(
+      'Home Planner',
+      'Scan room · Build plan · AR',
+      Icons.grid_4x4,
+      const Color(0xFFE8F5E9),
+      Colors.green,
+    ),
+  ),
+),
           ],
         ),
       ],

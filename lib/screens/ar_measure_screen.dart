@@ -7,7 +7,6 @@ import 'package:ar_flutter_plugin/managers/ar_location_manager.dart';
 import 'package:ar_flutter_plugin/managers/ar_object_manager.dart';
 import 'package:ar_flutter_plugin/managers/ar_session_manager.dart';
 import 'package:ar_flutter_plugin/models/ar_anchor.dart';
-import 'package:ar_flutter_plugin/models/ar_hittest_result.dart';
 import 'package:ar_flutter_plugin/models/ar_node.dart';
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
@@ -109,27 +108,30 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
   // ─── AR INIT ──────────────────────────────────────────────────────────────
   void onARViewCreated(
-    ARSessionManager arSessionManager,
-    ARObjectManager arObjectManager,
-    ARAnchorManager arAnchorManager,
-    ARLocationManager arLocationManager,
-  ) {
-    this.arSessionManager = arSessionManager;
-    this.arObjectManager = arObjectManager;
-    this.arAnchorManager = arAnchorManager;
+    ARSessionManager? arSessionManager,
+    ARObjectManager? arObjectManager,
+    ARAnchorManager? arAnchorManager,
+    ARLocationManager arLocationManager,  // ✅ add this missing parameter
+  )
+  
+  {
+  this.arSessionManager = arSessionManager;
+  this.arObjectManager = arObjectManager;
+  this.arAnchorManager = arAnchorManager;
 
+  // CHANGE: defer heavy init off the navigation frame
+  Future.microtask(() {
     this.arSessionManager!.onInitialize(
       showFeaturePoints: false,
       showPlanes: true,
       showWorldOrigin: false,
-      handleTaps: false, // crosshair button owns point placement
+      handleTaps: false,
     );
     this.arObjectManager!.onInitialize();
-
+    
     this.arSessionManager!.onLightEstimate = (estimate) {
       if (mounted) setState(() => _lightEstimate = estimate);
     };
-
     this.arSessionManager!.onPlanesDetected = (planes) {
       if (mounted) setState(() => _detectedPlanes = planes);
     };
@@ -140,7 +142,8 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
         _startFrameLoop();
       }
     });
-  }
+  });
+}
 
   // ─── FRAME LOOP: poll center-screen hit every 50ms ────────────────────────
   void _startFrameLoop() {

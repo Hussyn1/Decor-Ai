@@ -33,12 +33,10 @@ import '../services/tripoSr.dart';
 import 'package:ar_flutter_plugin/models/light_estimate.dart';
 import '../controllers/ar_view_controller.dart';
 import '../services/ar_core_bridge.dart';
-import '../core/ar_data.dart';
 import '../controllers/catalog_controller.dart';
 import '../controllers/room_scan_controller.dart';
 import '../widgets/room_scan_overlay.dart';
 import '../widgets/room_scan_result_panel.dart';
-import 'dart:io';
 
 class ArViewScreen extends StatefulWidget {
   final Project? project;
@@ -54,8 +52,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
   ARSessionManager? arSessionManager;
   ARObjectManager? arObjectManager;
   final ProjectController _projectController = Get.put(ProjectController());
-  final ArViewController _arController = Get.put(ArViewController());
-  final RoomScanController _scanController = Get.put(RoomScanController());
+  late final ArViewController _arController;
+  late final RoomScanController _scanController;
   final CatalogController _catalogController = Get.find<CatalogController>();
   final SettingsController _settingsController = Get.find<SettingsController>();
   Uint8List? _pendingThumbnailBytes;
@@ -95,6 +93,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
   bool _isLoadingItems = false; // Guard for project restoration
   bool _isModelCaching = false; // ✅ Track caching status
   String? _generatedModelUri; // ✅ Stores the specific generated local filename
+  // ignore: unused_field
   int _lastTapTimestamp = 0; // For temporal debouncing
   bool _isCapturing = false; // ✅ Track capture snapshot status
   bool _showShutterFlash = false; // ✅ Track camera shutter flash visibility
@@ -127,6 +126,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
       _arController.selectedFurnitureIndex.value = value;
   bool get _isRestored => _arController.isRestored.value;
   set _isRestored(bool value) => _arController.isRestored.value = value;
+  // ignore: unused_element
   bool get _isScanning => _arController.isScanning.value;
   set _isScanning(bool value) => _arController.isScanning.value = value;
 
@@ -148,6 +148,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
   @override
   void initState() {
     super.initState();
+    _arController = Get.put(ArViewController());
+    _scanController = Get.put(RoomScanController());
     _sessionId =
         "session_${DateTime.now().millisecondsSinceEpoch.toString().split('').reversed.join('').substring(0, 5)}";
 
@@ -165,7 +167,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
       _preCacheModel(widget.initialModelUrl!);
     }
 
-    _checkLiDARSupport(); // ✅ Call once on init instead of every tap
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkLiDARSupport();
+    }); // ✅ Call once on init instead of every tap
 
     // Initialize project
     if (widget.project != null) {
@@ -462,20 +466,19 @@ class _ArViewScreenState extends State<ArViewScreen> {
                 const SizedBox(width: 24),
                 _buildCaptureButton(),
                 const SizedBox(width: 24),
-                _buildGlassCircleButton(
-                  Icons.radar,
-                  () {
-                    if (arSessionManager != null) {
+                _buildGlassCircleButton(Icons.radar, () {
+                  if (arSessionManager != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
                       _scanController.scanRoom(arSessionManager!, nodes);
-                    } else {
-                      Get.snackbar(
-                        "Scan Unavailable",
-                        "Wait for AR camera session to initialize.",
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
-                    }
-                  },
-                ),
+                    });
+                  } else {
+                    Get.snackbar(
+                      "Scan Unavailable",
+                      "Wait for AR camera session to initialize.",
+                      snackPosition: SnackPosition.BOTTOM,
+                    );
+                  }
+                }),
               ],
             ),
           ),
@@ -563,9 +566,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
           if (_showShutterFlash)
             Positioned.fill(
               child: IgnorePointer(
-                child: Container(
-                  color: Colors.white.withOpacity(0.85),
-                ),
+                child: Container(color: Colors.white.withOpacity(0.85)),
               ),
             ),
         ],
@@ -690,11 +691,12 @@ class _ArViewScreenState extends State<ArViewScreen> {
       print("DEBUG: ARCore Callback - Cloud ID: $cloudId");
 
       if (_pendingUploads.containsKey(name)) {
-        if (cloudId != null) {
+        if (cloudId != null && cloudId.startsWith('ua-')) {
+          // Only accept real Cloud Anchor IDs (they start with 'ua-')
           _pendingUploads[name].complete(cloudId);
         } else {
-          // If no ID on object, use name as fallback (common in some versions)
-          _pendingUploads[name].complete(name);
+          // Internal anchor name is not a real cloud ID — don't save it
+          _pendingUploads[name].complete('');
         }
         _pendingUploads.remove(name);
       }
@@ -734,7 +736,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
     }
 
     // We no longer load immediately. We wait for ground detection.
-    if (widget.project == null) _isRestored = true;
+    if (widget.project == null || _currentProject.items.isEmpty) {
+      _isRestored = true;
+    }
   }
 
   // --- PLACEMENT & INTERACTION HANDLERS ---
@@ -1005,6 +1009,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     _worldPositions[nodeName] = transform.getTranslation();
   }
 
+  // ignore: unused_element
   void _togglePlanes() {
     setState(() {
       _showPlanes = !_showPlanes;
@@ -1053,6 +1058,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     }
   }
 
+  // ignore: unused_element
   void _snapToNearestWall() async {
     if (selectedNode == null || isLocked) return;
     _applyMagneticWallSnapping(selectedNode!);
@@ -1257,174 +1263,89 @@ class _ArViewScreenState extends State<ArViewScreen> {
   // --- PROJECT PERSISTENCE ---
   Future<void> _loadProjectItems({ARHitTestResult? groundingHit}) async {
     if (arObjectManager == null || arAnchorManager == null) return;
-    if (_isLoadingItems) {
-      print(
-        "BREADCRUMB [$_sessionId]: _loadProjectItems BLOCKED - Already loading.",
-      );
-      return;
-    }
+    if (_isLoadingItems) return;
     _isLoadingItems = true;
+
     print(
-      "BREADCRUMB [$_sessionId]: _loadProjectItems STARTing for project ${_currentProject.id}",
+      "BREADCRUMB [$_sessionId]: _loadProjectItems START — ${_currentProject.items.length} items",
     );
 
     try {
-      // Give AR engine a brief moment to stabilize
       await Future.delayed(const Duration(milliseconds: 300));
 
-      // PHASE 4: Try to resolve Cloud Anchors first
-      bool cloudAnchorsResolved = false;
-      // Set to track which item indices were resolved via cloud to prevent duplication
-      final Set<int> resolvedIndices = {};
-
-      print(
-        "DEBUG: Checking ${_currentProject.items.length} items for Cloud Anchors...",
-      );
-      for (int i = 0; i < _currentProject.items.length; i++) {
-        final item = _currentProject.items[i];
-        if (item.cloudAnchorId != null && item.cloudAnchorId!.isNotEmpty) {
-          print("DEBUG: Attempting to resolve Cloud ID: ${item.cloudAnchorId}");
-          try {
-            // Initiate Download
-            final completer = Completer<ARAnchor?>();
-            _pendingDownloads[item.cloudAnchorId!] = completer;
-
-            bool initiated =
-                await arAnchorManager!.downloadAnchor(item.cloudAnchorId!) ??
-                false;
-
-            if (!initiated) {
-              print(
-                "DEBUG: Failed to initiate download for ${item.cloudAnchorId}",
-              );
-              _pendingDownloads.remove(item.cloudAnchorId!);
-              continue;
-            }
-
-            // Wait for callback with increased timeout (30s)
-            final resolvedAnchor = await completer.future.timeout(
-              const Duration(seconds: 30),
-              onTimeout: () {
-                print("DEBUG: Timeout resolving anchor: ${item.cloudAnchorId}");
-                return null; // Return null to signal timeout
-              },
-            );
-
-            if (resolvedAnchor != null) {
-              print(
-                "DEBUG: SUCCESS! Cloud Anchor resolved: ${item.cloudAnchorId}",
-              );
-              _showStatus("Resolved persistent anchor 📍");
-              cloudAnchorsResolved = true;
-              resolvedIndices.add(i); // Mark as resolved
-              anchors.add(resolvedAnchor);
-
-              var newNode = ARNode(
-                type: NodeType.webGLB,
-                uri: item.modelUri,
-                scale: item.scale,
-                position: vector.Vector3(0, 0, 0),
-                rotation: item.rotation,
-                name: "furniture_${DateTime.now().microsecondsSinceEpoch}",
-              );
-
-              // Re-anchoring logic for resolved cloud anchor
-              bool? didAdd = await arObjectManager!.addNode(
-                newNode,
-                planeAnchor: (resolvedAnchor is ARPlaneAnchor)
-                    ? resolvedAnchor
-                    : null,
-              );
-
-              if (didAdd == true) {
-                nodes.add(newNode);
-                _nodeAnchors[newNode.name] = resolvedAnchor;
-                _worldPositions[newNode.name] = resolvedAnchor.transformation
-                    .getTranslation();
-              }
-            }
-          } catch (e) {
-            print("DEBUG: Error processing cloud anchor: $e");
-          }
-        }
-      }
-
-      if (groundingHit == null && !cloudAnchorsResolved) {
-        if (_currentProject.items.isNotEmpty) {
-          _showStatus("Tip: Tap a surface to restore the design layout.");
-        }
-        return;
-      }
-
-      // Fallback: Group restoration (Relative to first item)
-      // Only proceed if there are items left to restore that weren't resolved via Cloud
       if (_currentProject.items.isEmpty) return;
 
-      final tapPos =
-          groundingHit?.worldTransform.getTranslation() ??
-          vector.Vector3.zero();
-
-      // We only perform grounding if we haven't already restored EVERYTHING via cloud
-      if (resolvedIndices.length == _currentProject.items.length) {
-        print(
-          "DEBUG: All items restored via Cloud. Skipping fallback grounding.",
-        );
-
+      // We need a grounding tap to anchor the relative layout
+      if (groundingHit == null) {
+        _showStatus("Tap your floor to restore the design layout 📍");
         return;
       }
 
-      // Fallback: Group restoration (Phase 2 style) if no cloud anchors hit
-      final stableTransform = vector.Matrix4.identity()..setTranslation(tapPos);
+      final tapPos = groundingHit.worldTransform.getTranslation();
 
-      var rootAnchor = ARPlaneAnchor(transformation: stableTransform);
-      bool? didAddRoot = await arAnchorManager!.addAnchor(rootAnchor);
+      // Create a single root anchor at the tap point
+      final stableTransform = vector.Matrix4.identity()..setTranslation(tapPos);
+      final rootAnchor = ARPlaneAnchor(transformation: stableTransform);
+      final didAddRoot = await arAnchorManager!.addAnchor(rootAnchor);
 
       if (didAddRoot != true) {
-        _showStatus("Surface too unstable. Please scan more. 🛰️");
+        _showStatus("Surface unstable — scan more of the floor first 🛰️");
         return;
       }
       anchors.add(rootAnchor);
 
-      final referencePos = _currentProject.items.first.position;
+      int successCount = 0;
 
-      for (int i = 0; i < _currentProject.items.length; i++) {
-        if (resolvedIndices.contains(i)) {
-          print(
-            "DEBUG: Skipping item $i during fallback because it was resolved via Cloud.",
-          );
-          continue;
-        }
-        final item = _currentProject.items[i];
-        if (!mounted) return;
+      for (final item in _currentProject.items) {
+        if (!mounted) break;
         try {
-          var localPos = item.position - referencePos;
+          // item.position is now relative to centroid
+          // Place it relative to the user's tap point
+          final localPos = item.position; // relative vector
 
-          var newNode = ARNode(
-            type: NodeType.webGLB,
-            uri: item.modelUri,
-            scale: item.scale,
-            position: localPos,
-            rotation: item.rotation,
-            name: "furniture_${DateTime.now().microsecondsSinceEpoch}",
-          );
+          final bool isRemote = item.modelUri.startsWith('http');
+final String safeUri = isRemote
+    ? item.modelUri
+    : (item.modelUri.contains('/')
+        ? item.modelUri.split('/').last
+        : item.modelUri);
 
-          bool? didAdd = await arObjectManager!.addNode(
+final newNode = ARNode(
+  type: isRemote ? NodeType.webGLB : NodeType.fileSystemAppFolderGLB,
+  uri: safeUri,
+  scale: item.scale,
+  position: localPos,
+  rotation: item.rotation,
+  name: "furniture_${DateTime.now().microsecondsSinceEpoch}",
+);
+          final didAdd = await arObjectManager!.addNode(
             newNode,
             planeAnchor: rootAnchor,
           );
 
           if (didAdd == true) {
             nodes.add(newNode);
+            _nodeAnchors[newNode.name] = rootAnchor;
+            // World position = tap point + relative offset
             _worldPositions[newNode.name] = tapPos + localPos;
-            _showStatus("Restored: ${item.modelUri.split('/').last} 🛋️");
+            successCount++;
+            _showStatus(
+              "Restored ${successCount}/${_currentProject.items.length} items...",
+            );
           }
-          await Future.delayed(const Duration(milliseconds: 150));
+
+          // Small delay between spawns so AR engine doesn't get overwhelmed
+          await Future.delayed(const Duration(milliseconds: 200));
         } catch (e) {
-          print("Error loading item: $e");
+          print("Error restoring item ${item.modelUri}: $e");
         }
       }
 
-      // Scan loaded items for AI
+      _showStatus(
+        successCount == _currentProject.items.length
+            ? "Design restored! ✅"
+            : "Restored $successCount/${_currentProject.items.length} items ⚠️",
+      );
     } finally {
       _isLoadingItems = false;
       print("BREADCRUMB [$_sessionId]: _loadProjectItems FINISHED");
@@ -1432,167 +1353,155 @@ class _ArViewScreenState extends State<ArViewScreen> {
   }
 
   Future<void> _groundDesign(ARHitTestResult hit) async {
-    _showStatus("Grounding design... Please wait. 🏗️");
-
-    // 1. Calculate Restoration Offset
-    // We align the FIRST saved item to the user's grounding tap
-    if (_currentProject.items.isNotEmpty) {
-      final tapPos = hit.worldTransform.getTranslation();
-      final originalPos = _currentProject.items.first.position;
-
-      // Offset = (Where user tapped) - (Where first item used to be)
-      // This "re-centers" the entire layout around the tap.
-      setState(() {
-        _restorationOffset = tapPos - originalPos;
-      });
-      print(
-        "DEBUG: Relative Restoration Offset calculated: $_restorationOffset",
-      );
-    }
-
-    // Confirmation Dialog for Restoration
-    bool shouldRestore = true;
-    if (_currentProject.items.isNotEmpty) {
-      if (!mounted) return;
-      shouldRestore =
-          await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text("Resume Design?"),
-              content: Text(
-                "This project has ${_currentProject.items.length} items from a previous session.\n\nDo you want to restore them or start fresh?",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context, false), // Start Fresh
-                  child: const Text(
-                    "Start Fresh",
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context, true), // Restore
-                  child: const Text("Restore Items"),
-                ),
-              ],
-            ),
-          ) ??
-          true;
-    }
-
-    if (!shouldRestore) {
-      _showStatus("Starting fresh! 🌱");
-      setState(() {
-        _currentProject.items.clear();
-        _restorationOffset = vector.Vector3.zero();
-      });
-      // Grounding complete, but no items to load
+    if (_currentProject.items.isEmpty) {
+      _isRestored = true;
       return;
     }
 
-    _showStatus(
-      "Grounding design... Restoring ${_currentProject.items.length} items. ⏳",
-    );
+    if (!mounted) return;
 
-    // 2. Load the items immediately with Anchored Loading
+    final shouldRestore =
+        await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text("Resume design?"),
+            content: Text(
+              "This project has ${_currentProject.items.length} saved items.\n\n"
+              "Tap where you want to anchor the design — furniture will be placed relative to that point.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  "Start fresh",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text("Restore items"),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+
+    if (!shouldRestore) {
+      _currentProject.items.clear();
+      _isRestored = true;
+      _showStatus("Starting fresh 🌱");
+      return;
+    }
+
     await _loadProjectItems(groundingHit: hit);
-
-    _showStatus("Design restored successfully! ✅");
+    _isRestored = true;
   }
 
   Future<void> _saveProject() async {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("Saving project...")));
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text("Saving project...")),
+  );
 
-    print("DEBUG: Attempting to save project ${_currentProject.id}");
-    print("DEBUG: Total nodes in scene: ${nodes.length}");
+  // ── CRITICAL: Snapshot positions NOW before any async clears them ──
+  final Map<String, vector.Vector3> positionSnapshot = {};
+  for (var node in nodes) {
+    positionSnapshot[node.name] = 
+        vector.Vector3.copy(_worldPositions[node.name] ?? node.position);
+  }
+  final List<ARNode> nodeSnapshot = List.from(nodes);
 
-    // 0. Upload Anchors
-    _showStatus("Syncing with Cloud... ☁️");
-    Map<String, String> uploadedIds = {};
-    try {
-      uploadedIds = await _uploadAnchors();
-      _showStatus("Cloud Sync Complete.");
-    } catch (e) {
-      print("Warning: Cloud upload failed: $e");
+  print("DEBUG: Saving project ${_currentProject.id} | nodes: ${nodeSnapshot.length}");
+
+  _showStatus("Syncing with Cloud... ☁️");
+  Map<String, String> uploadedIds = {};
+  try {
+    uploadedIds = await _uploadAnchors();
+    _showStatus("Cloud Sync Complete.");
+  } catch (e) {
+    print("Warning: Cloud upload failed: $e");
+  }
+
+  try {
+    // Calculate centroid from snapshot
+    vector.Vector3 centroid = vector.Vector3.zero();
+    for (var node in nodeSnapshot) {
+      centroid += positionSnapshot[node.name] ?? vector.Vector3.zero();
+    }
+    if (nodeSnapshot.isNotEmpty) {
+      centroid = centroid / nodeSnapshot.length.toDouble();
     }
 
-    try {
-      List<FurniturePlacement> currentItems = [];
-      for (var node in nodes) {
-        // Ensure name is not null
-        // Use Shadow Map if available, otherwise fallback to node.position
-        vector.Vector3 worldPos = _worldPositions[node.name] ?? node.position;
-        print("DEBUG: Saving node ${node.name} at world pos $worldPos");
+    print("DEBUG: Centroid = $centroid");
 
-        // Handle rotation correctly (Vector4 vs Matrix3)
-        vector.Vector4 rot;
-        if (node.rotation is vector.Vector4) {
-          rot = node.rotation as vector.Vector4;
-        } else {
-          final q = vector.Quaternion.fromRotation(node.rotation as dynamic);
-          rot = vector.Vector4(q.x, q.y, q.z, q.w);
-        }
+    List<FurniturePlacement> currentItems = [];
+    for (var node in nodeSnapshot) {
+      final vector.Vector3 worldPos = 
+          positionSnapshot[node.name] ?? vector.Vector3.zero();
+      
+      // Store relative to centroid so restoration is layout-preserving
+      final vector.Vector3 relativePos = worldPos - centroid;
 
-        // Uploaded Cloud Anchor ID (if available from previous save or upload)
-        // We will inject the new ones from the _uploadAnchors map passed in (if we refactor _saveProject signature)
-        // BUT, better to assume _nodeAnchors has the LIVE anchors which we just uploaded.
-        // Wait, _uploadAnchors needs to return the IDs.
+      print("DEBUG: Node ${node.name} | world=$worldPos | relative=$relativePos");
 
-        currentItems.add(
-          FurniturePlacement(
-            modelUri: node.uri,
-            position: worldPos,
-            rotation: rot,
-            scale: node.scale,
-            cloudAnchorId: uploadedIds[node.name] ?? _findExistingCloudId(node),
-          ),
+      vector.Vector4 rot;
+      if (node.rotation is vector.Vector4) {
+        rot = node.rotation as vector.Vector4;
+      } else {
+        final q = vector.Quaternion.fromRotation(node.rotation as dynamic);
+        rot = vector.Vector4(q.x, q.y, q.z, q.w);
+      }
+
+      currentItems.add(FurniturePlacement(
+        modelUri: node.uri,
+        position: relativePos,
+        rotation: rot,
+        scale: node.scale,
+        cloudAnchorId: 
+            uploadedIds[node.name] ?? _findExistingCloudId(node),
+      ));
+    }
+
+    print("DEBUG: Total items to save: ${currentItems.length}");
+
+    _currentProject.items = currentItems;
+    _currentProject.lastModified = DateTime.now();
+
+    await _projectController.saveProject(_currentProject);
+
+    // Upload pending thumbnail if any
+    if (_pendingThumbnailBytes != null) {
+      _showStatus("Uploading thumbnail... 📤");
+      try {
+        final projectService = ProjectService();
+        final thumbnailUrl = await projectService.uploadThumbnail(
+          _currentProject.id, 
+          _pendingThumbnailBytes!,
         );
+        setState(() => _currentProject.thumbnailPath = thumbnailUrl);
+        await _projectController.saveProject(_currentProject);
+        _pendingThumbnailBytes = null;
+      } catch (e) {
+        print("Warning: Failed to upload thumbnail: $e");
       }
+    }
 
-      print("DEBUG: Total items to save: ${currentItems.length}");
-
-      _currentProject.items = currentItems;
-      _currentProject.lastModified = DateTime.now();
-
-      await _projectController.saveProject(_currentProject);
-
-      if (_pendingThumbnailBytes != null) {
-        _showStatus("Uploading thumbnail... 📤");
-        try {
-          final projectService = ProjectService();
-          final thumbnailUrl = await projectService.uploadThumbnail(_currentProject.id, _pendingThumbnailBytes!);
-          setState(() {
-            _currentProject.thumbnailPath = thumbnailUrl;
-          });
-          await _projectController.saveProject(_currentProject);
-          _pendingThumbnailBytes = null;
-          print("[AR-LOG] Thumbnail uploaded and linked to saved project: $thumbnailUrl");
-        } catch (e) {
-          print("Warning: Failed to upload pending thumbnail: $e");
-        }
-      }
-
-      if (!mounted) return;
-
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Project saved! ✅")),
+    );
+  } catch (e, stack) {
+    print("ERROR saving project: $e\n$stack");
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Project saved successfully! ✅")),
+        SnackBar(
+          content: Text("Failed to save: $e"),
+          backgroundColor: Colors.red,
+        ),
       );
-    } catch (e, stack) {
-      print("ERROR saving project: $e");
-      print(stack);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("Failed to save: $e"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
     }
   }
+}
 
   // Error Listener
   void _setupErrorListener() {
@@ -1731,11 +1640,13 @@ class _ArViewScreenState extends State<ArViewScreen> {
   }
 
   Future<void> _shareProject() async {
+    // ignore: unused_local_variable
     final projectController = Get.find<ProjectController>();
     _showStatus("Phase 4: Preparing shared session... ☁️");
 
     // 1. Host all local anchors to Cloud
     // _uploadAnchors returns a map of NodeName -> CloudID
+    // ignore: unused_local_variable
     final uploadedMap = await _uploadAnchors();
 
     // 2. Save project with new Cloud IDs
@@ -1848,21 +1759,18 @@ class _ArViewScreenState extends State<ArViewScreen> {
   }
 
   String? _findExistingCloudId(ARNode node) {
-    // Helper to find ID if we didn't just upload it (e.g. from load)
-    final anchor = _nodeAnchors[node.name];
-    if (anchor == null) return null;
-
-    try {
-      // ignore: avoid_dynamic_calls
-      final dynamic dAnchor = anchor;
-      // Use try-catch or safe access for plugin-specific properties
-      return dAnchor.cloudAnchorId ?? dAnchor.cloudanchorid;
-    } catch (e) {
-      // If the getter doesn't exist, we fall back to the anchor name
-      // (which is often set to the Cloud ID for resolved anchors)
-      return anchor.name.startsWith("furniture_") ? null : anchor.name;
-    }
+  final anchor = _nodeAnchors[node.name];
+  if (anchor == null) return null;
+  try {
+    final dynamic dAnchor = anchor;
+    final id = dAnchor.cloudAnchorId ?? dAnchor.cloudanchorid;
+    // Only return real Cloud Anchor IDs
+    if (id is String && id.startsWith('ua-')) return id;
+    return null;
+  } catch (e) {
+    return null;
   }
+}
 
   Future<void> _toggleLiDAR() async {
     if (_isLiDARSupported) {
@@ -1890,7 +1798,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
         _showStatus("Phase 1: Visual Realism active 👁️");
       } else {
         await _arBridge.enableLightEstimation(false);
-        _showStatus("Phase 1: Visual Realism active (Lighting Estimation: OFF) 👁️");
+        _showStatus(
+          "Phase 1: Visual Realism active (Lighting Estimation: OFF) 👁️",
+        );
       }
       print("DEBUG: Realism features enabled successfully");
     } catch (e) {
@@ -1902,18 +1812,25 @@ class _ArViewScreenState extends State<ArViewScreen> {
     final Completer<Uint8List> completer = Completer<Uint8List>();
     final ImageStream stream = provider.resolve(ImageConfiguration.empty);
     late ImageStreamListener listener;
-    listener = ImageStreamListener((ImageInfo frame, bool sync) async {
-      final ByteData? byteData = await frame.image.toByteData(format: ImageByteFormat.png);
-      stream.removeListener(listener);
-      if (byteData != null) {
-        completer.complete(byteData.buffer.asUint8List());
-      } else {
-        completer.completeError(Exception("Failed to convert image to bytes"));
-      }
-    }, onError: (Object error, StackTrace? stackTrace) {
-      stream.removeListener(listener);
-      completer.completeError(error);
-    });
+    listener = ImageStreamListener(
+      (ImageInfo frame, bool sync) async {
+        final ByteData? byteData = await frame.image.toByteData(
+          format: ImageByteFormat.png,
+        );
+        stream.removeListener(listener);
+        if (byteData != null) {
+          completer.complete(byteData.buffer.asUint8List());
+        } else {
+          completer.completeError(
+            Exception("Failed to convert image to bytes"),
+          );
+        }
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        stream.removeListener(listener);
+        completer.completeError(error);
+      },
+    );
     stream.addListener(listener);
     return completer.future;
   }
@@ -1921,17 +1838,24 @@ class _ArViewScreenState extends State<ArViewScreen> {
   Future<void> _uploadThumbnail(Uint8List bytes) async {
     try {
       final projectService = ProjectService();
-      final thumbnailUrl = await projectService.uploadThumbnail(_currentProject.id, bytes);
+      final thumbnailUrl = await projectService.uploadThumbnail(
+        _currentProject.id,
+        bytes,
+      );
       setState(() {
         _currentProject.thumbnailPath = thumbnailUrl;
       });
-      
+
       // Update controller's project list
-      final index = _projectController.projects.indexWhere((p) => p.id == _currentProject.id);
+      final index = _projectController.projects.indexWhere(
+        (p) => p.id == _currentProject.id,
+      );
       if (index >= 0) {
         _projectController.projects[index] = _currentProject;
       }
-      print("[AR-LOG] Thumbnail uploaded successfully to Cloudinary: $thumbnailUrl");
+      print(
+        "[AR-LOG] Thumbnail uploaded successfully to Cloudinary: $thumbnailUrl",
+      );
     } catch (e) {
       print("[AR-LOG] Error uploading thumbnail: $e");
     }
@@ -1947,7 +1871,10 @@ class _ArViewScreenState extends State<ArViewScreen> {
     try {
       final image = await arSessionManager!.snapshot();
       final bytes = await _imageProviderToBytes(image);
-      await Gal.putImageBytes(bytes, name: 'DecorAR_${DateTime.now().millisecondsSinceEpoch}.png');
+      await Gal.putImageBytes(
+        bytes,
+        name: 'DecorAR_${DateTime.now().millisecondsSinceEpoch}.png',
+      );
       Get.snackbar(
         'Saved!',
         'AR snapshot saved to your gallery 📸',
