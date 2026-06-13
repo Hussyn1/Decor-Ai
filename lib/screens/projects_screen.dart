@@ -1,12 +1,13 @@
+import 'package:decor_ar_fyp/controllers/project_controller_firestore.dart';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 
 import 'create_project_screen.dart';
 
 import 'package:get/get.dart';
-import '../controllers/project_controller.dart';
-import '../services/project_service.dart'; // Import Project model only
+import '../services/firestore_project_service.dart';
 import 'ar_view_screen.dart';
+import 'three_floor_plan_screen.dart';
 
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
@@ -153,7 +154,68 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
 
     return GestureDetector(
       onTap: () async {
-        await Get.to(() => ArViewScreen(project: project));
+        if (project.layoutData != null && project.layoutData!.isNotEmpty) {
+          await Get.bottomSheet(
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Color(0xFF0F172A),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    project.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.cyanAccent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Get.back();
+                      Get.to(() => ThreeFloorPlanScreen(project: project));
+                    },
+                    icon: const Icon(Icons.edit_note),
+                    label: const Text('Open in 3D Editor', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white30),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: () {
+                      Get.back();
+                      Get.to(() => ArViewScreen(project: project));
+                    },
+                    icon: const Icon(Icons.view_in_ar, color: Colors.cyanAccent),
+                    label: const Text('Preview in AR'),
+                  ),
+                ],
+              ),
+            ),
+          );
+        } else {
+          await Get.to(() => ArViewScreen(project: project));
+        }
         _projectController.fetchProjects(); // Refresh on return
       },
       onLongPress: () {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/primary_button.dart';
-import '../services/project_service.dart';
+import '../services/firestore_project_service.dart';
 import 'ar_view_screen.dart';
 import 'package:get/get.dart';
 

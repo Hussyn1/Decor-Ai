@@ -77,12 +77,19 @@ class _FloorPlanEditorScreenState extends State<FloorPlanEditorScreen> {
       color: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(children: [
-        _toolBtn(Icons.chair, 'Furniture', FloorPlanElementType.furniture),
-        const SizedBox(width: 8),
-        _toolBtn(Icons.door_front_door, 'Door', FloorPlanElementType.door),
-        const SizedBox(width: 8),
-        _toolBtn(Icons.window, 'Window', FloorPlanElementType.window),
-        const Spacer(),
+        Flexible(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(children: [
+              _toolBtn(Icons.chair, 'Furniture', FloorPlanElementType.furniture),
+              const SizedBox(width: 8),
+              _toolBtn(Icons.door_front_door, 'Door', FloorPlanElementType.door),
+              const SizedBox(width: 8),
+              _toolBtn(Icons.window, 'Window', FloorPlanElementType.window),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 4),
         if (_selectedElementId != null)
           TextButton.icon(
             onPressed: () {

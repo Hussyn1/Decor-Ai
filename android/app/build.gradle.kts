@@ -29,7 +29,7 @@ android {
         applicationId = "com.example.decor_ar_fyp"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 24 
+        minSdk = 25
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -56,5 +56,5 @@ dependencies {
     implementation("com.google.ar:core:1.33.0")    
     implementation("com.google.ar.sceneform.ux:sceneform-ux:1.8.0")
     implementation("com.google.ar.sceneform:core:1.8.0")
-}
+       }
 

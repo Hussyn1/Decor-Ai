@@ -84,6 +84,7 @@ class Project {
   DateTime lastModified;
   List<FurniturePlacement> items;
   String? thumbnailPath; // Optional: Setup for future screen capture
+  String? layoutData;
 
   Project({
     required this.id,
@@ -93,6 +94,7 @@ class Project {
     required this.lastModified,
     this.items = const [],
     this.thumbnailPath,
+    this.layoutData,
   });
 
   Map<String, dynamic> toJson() => {
@@ -103,6 +105,7 @@ class Project {
     'lastModified': lastModified.toIso8601String(),
     'items': items.map((i) => i.toJson()).toList(),
     'thumbnailUrl': thumbnailPath,
+    'layoutData': layoutData,
   };
 
   factory Project.fromJson(Map<String, dynamic> json) {
@@ -132,6 +135,7 @@ class Project {
         lastModified: lastModified,
         items: items,
         thumbnailPath: json['thumbnailPath'] ?? json['thumbnailUrl'],
+        layoutData: json['layoutData'] as String?,
       );
     } catch (e, stack) {
       print("ERROR parsing Project: $e");

@@ -1,14 +1,15 @@
+import 'package:decor_ar_fyp/screens/three_floor_plan_screen.dart';
 import 'package:decor_ar_fyp/screens/home_planner/home_planner_entry_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import '../controllers/project_controller_firestore.dart';
 import '../core/app_theme.dart';
 import 'ar_measure_screen.dart';
 import 'ar_view_screen.dart';
 import '2d_3d_builder.dart';
 import 'projects_screen.dart';
 import 'discover_screen.dart';
-import '../controllers/project_controller.dart';
-import '../services/project_service.dart';
+import '../services/firestore_project_service.dart';
 import 'settings_screen.dart';
 
 import 'ai_stylist_screen.dart';

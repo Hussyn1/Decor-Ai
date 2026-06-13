@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>3D Floor Plan Editor</title>
+  <style>
+    :root {
+      --primary: #38bdf8;
+      --primary-glow: rgba(56, 189, 248, 0.4);
+      --bg-glass: rgba(15, 23, 42, 0.85);
+      --border-glass: rgba(255, 255, 255, 0.1);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #0f172a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      color: var(--text);
+    }
+
+    #canvas-container, canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      touch-action: none; /* Crucial: stops WebView panning/bouncing and makes drags smooth */
+    }
+
+    /* Core UI Panels */
+    .glass-panel {
+      background: var(--bg-glass);
+      border: 1px solid var(--border-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+      z-index: 10;
+    }
+
+    /* Left Control Sidebar - Positions all tools clear of the right catalog drawer */
+    #left-controls {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 140px;
+      box-sizing: border-box;
+      pointer-events: auto;
+    }
+
+    /* Selection Indicator inside Sidebar */
+    #selection-indicator {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .selected-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      flex-shrink: 0;
+    }
+
+    #sel-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Action Buttons */
+    .control-btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .control-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text);
+      padding: 8px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: background 0.2s, border-color 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+      touch-action: manipulation;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .control-btn:active {
+      transform: scale(0.97);
+      border-color: var(--primary);
+    }
+
+    /* Wall Color Picker Palette inside Sidebar */
+    #color-picker-palette.open,
+    #color-picker-palette {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 10px;
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      background: red; /* TEMP DEBUG */
+  min-height: 50px; /* TEMP DEBUG */
+    }
+
+    .panel-title {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      justify-items: center;
+    }
+
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s, border-color 0.2s;
+      box-sizing: border-box;
+      padding: 0;
+      touch-action: manipulation;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .color-swatch.active {
+      border-color: var(--primary);
+      box-shadow: 0 0 6px var(--primary-glow);
+    }
+
+    /* Loading Indicator */
+    #loading-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--primary);
+      font-weight: 600;
+      font-size: 15px;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(56, 189, 248, 0.1);
+      border-radius: 50%;
+      border-top-color: var(--primary);
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* Walking Mode HUD (Top Center) */
+    #fps-hud {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      display: none;
+      align-items: center;
+      gap: 14px;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      z-index: 25; /* Must be above #look-zone (z-index:15) so exit button is tappable */
+    }
+
+    #exit-walk-btn {
+      background: #ef4444;
+      border: none;
+      color: white;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+      touch-action: manipulation;
+    }
+
+    #exit-walk-btn:hover {
+      background: #dc2626;
+    }
+
+    /* Help text footer */
+    #controls-overlay {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      color: var(--text-muted);
+      font-size: 10px;
+      text-align: center;
+      padding: 6px 14px;
+      border-radius: 20px;
+      z-index: 5;
+    }
+
+    /* Joystick HUD Overlay */
+    #joystick-zone {
+      position: absolute;
+      bottom: 30px;
+      left: 30px;
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 20;
+      display: none;
+      touch-action: none;
+    }
+
+    #joystick-stick {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 15px var(--primary-glow);
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    /* Right screen swipe panel to look around in FPS mode */
+    #look-zone {
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 70vw;
+      height: 100vh;
+      z-index: 15;
+      display: none;
+      touch-action: none;
+    }
+
+    /* FPS Crosshair Reticle */
+    #reticle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.4);
+      border: 1.5px solid rgba(0, 0, 0, 0.6);
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 12;
+      pointer-events: none;
+      display: none;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.4; }
+      to { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  
+  <!-- Reticle for FPS walk mode -->
+  <div id="reticle"></div>
+
+  <!-- Loading State -->
+  <div id="loading-indicator">
+    <div class="spinner"></div>
+    <div>Initializing 3D Engine...</div>
+  </div>
+
+  <!-- Floating Left Controls Panel (Consolidates all controls to the left) -->
+  <div id="left-controls" class="glass-panel">
+    <!-- Selection HUD -->
+    <div id="selection-indicator">
+      <span class="selected-dot"></span>
+      <span id="sel-name">None</span>
+    </div>
+
+    <!-- Toggle Buttons -->
+    <div class="control-btn-group">
+      <button id="walk-btn" class="control-btn" style="display: none;">
+        🚶 Walk Inside
+      </button>
+      
+      <button id="color-toggle-btn" class="control-btn" style="display: none;">
+        🎨 Wall Color
+      </button>
+
+      <button id="add-door-btn" class="control-btn">
+        🚪 Add Door
+      </button>
+
+      <button id="add-window-btn" class="control-btn">
+        🪟 Add Window
+      </button>
+    </div>
+
+    <!-- Wall Color Picker Palette -->
+    <div id="color-picker-palette">
+      <span class="panel-title">Wall Paint</span>
+      <div class="color-grid">
+        <button class="color-swatch active" style="background-color: #F5F0E8;" data-color="#F5F0E8"></button>
+        <button class="color-swatch" style="background-color: #E6DFD3;" data-color="#E6DFD3"></button>
+        <button class="color-swatch" style="background-color: #D1D5DB;" data-color="#D1D5DB"></button>
+        <button class="color-swatch" style="background-color: #C6D5C5;" data-color="#C6D5C5"></button>
+        <button class="color-swatch" style="background-color: #B8C6D4;" data-color="#B8C6D4"></button>
+        <button class="color-swatch" style="background-color: #E0A899;" data-color="#E0A899"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Walking Mode HUD (Top Center) -->
+  <div id="fps-hud" class="glass-panel">
+    <span style="color: #ef4444; font-weight: 700; font-size: 11px; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+      <span style="width: 5px; height: 5px; border-radius:50%; background:#ef4444; display:inline-block; animation: pulse 1s infinite alternate;"></span>
+      WALKING MODE
+    </span>
+    <button id="exit-walk-btn">Exit Walk</button>
+  </div>
+
+  <!-- Joystick zones (hidden by default) -->
+  <div id="joystick-zone">
+    <div id="joystick-stick"></div>
+  </div>
+  <div id="look-zone"></div>
+
+  <!-- Help Overlay -->
+  <div id="controls-overlay" class="glass-panel">
+    Drag furniture to move | Orbit drag to rotate camera
+  </div>
+
+  <!-- Local library scripts -->
+  <script src="js/three.min.js"></script>
+  <script src="js/OrbitControls.js"></script>
+  <script src="js/GLTFLoader.js"></script>
+  <!-- Main app script -->
+  <script src="js/floor_plan_editor.js"></script>
+</body>
+</html>

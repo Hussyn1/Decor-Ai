@@ -1,3 +1,4 @@
+import 'package:decor_ar_fyp/controllers/project_controller_firestore.dart';
 import 'package:flutter/material.dart';
 import '../core/app_theme.dart';
 import 'package:get/get.dart';
@@ -13,7 +14,6 @@ import 'ar_settings_screen.dart';
 import 'gen_settings_screen.dart';
 import 'info_screens.dart';
 import '../controllers/settings_controller.dart';
-import '../controllers/project_controller.dart';
 import '../controllers/catalog_controller.dart';
 
 class SettingsScreen extends StatelessWidget {

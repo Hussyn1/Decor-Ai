@@ -4,6 +4,8 @@ import '../../core/app_theme.dart';
 import '../../controllers/home_planner_controller.dart';
 import 'ar_room_scan_screen.dart';
 import 'floor_plan_editor_screen.dart';
+import '../three_floor_plan_screen.dart';
+import '../../controllers/room_planner_controller.dart';
 
 class HomePlannerEntryScreen extends StatelessWidget {
   const HomePlannerEntryScreen({super.key});
@@ -196,7 +198,9 @@ class HomePlannerEntryScreen extends StatelessWidget {
       ),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          left: 24, right: 24, top: 24,
+          left: 24,
+          right: 24,
+          top: 24,
           bottom: MediaQuery.of(context).viewInsets.bottom + 24,
         ),
         child: Column(
@@ -205,7 +209,8 @@ class HomePlannerEntryScreen extends StatelessWidget {
           children: [
             Center(
               child: Container(
-                width: 40, height: 4,
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
                   color: Colors.grey.shade300,
                   borderRadius: BorderRadius.circular(2),
@@ -223,59 +228,93 @@ class HomePlannerEntryScreen extends StatelessWidget {
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
             ),
             const SizedBox(height: 20),
-            Row(children: [
-              Expanded(
-                child: _DimField(
-                  controller: wCtrl,
-                  label: 'Width (m)',
-                  hint: '4.0',
+            Row(
+              children: [
+                Expanded(
+                  child: _DimField(
+                    controller: wCtrl,
+                    label: 'Width (m)',
+                    hint: '4.0',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DimField(
-                  controller: dCtrl,
-                  label: 'Depth (m)',
-                  hint: '3.5',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _DimField(
+                    controller: dCtrl,
+                    label: 'Depth (m)',
+                    hint: '3.5',
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _DimField(
-                  controller: hCtrl,
-                  label: 'Height (m)',
-                  hint: '2.4',
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _DimField(
+                    controller: hCtrl,
+                    label: 'Height (m)',
+                    hint: '2.4',
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
             const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: () {
-                  planner.setManualDimensions(
-                    double.tryParse(wCtrl.text) ?? 4.0,
-                    double.tryParse(dCtrl.text) ?? 3.5,
-                    h: double.tryParse(hCtrl.text) ?? 2.4,
-                  );
-                  Navigator.pop(context);
-                  Get.to(() => const FloorPlanEditorScreen());
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      planner.setManualDimensions(
+                        double.tryParse(wCtrl.text) ?? 4.0,
+                        double.tryParse(dCtrl.text) ?? 3.5,
+                        h: double.tryParse(hCtrl.text) ?? 2.4,
+                      );
+                      Navigator.pop(context);
+                      Get.to(() => const FloorPlanEditorScreen());
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.primaryBlue,
+                      side: const BorderSide(color: AppTheme.primaryBlue),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      '2D Editor',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
-                child: const Text(
-                  'Continue to floor plan',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      final plannerCtrl = Get.put(RoomPlannerController());
+                      final w = double.tryParse(wCtrl.text) ?? 4.0;
+                      final l = double.tryParse(dCtrl.text) ?? 3.5;
+                      final h = double.tryParse(hCtrl.text) ?? 2.4;
+                      plannerCtrl.roomWidth.value = w;
+                      plannerCtrl.roomLength.value = l;
+                      plannerCtrl.roomHeight.value = h;
+
+                      Navigator.pop(context);
+                      Get.to(() => const ThreeFloorPlanScreen());
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.primaryBlue,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      '3D Editor',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
           ],
         ),
@@ -318,10 +357,7 @@ class _StepCard extends StatelessWidget {
           Container(
             width: 34,
             height: 34,
-            decoration: BoxDecoration(
-              color: numberBg,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: numberBg, shape: BoxShape.circle),
             child: Center(
               child: Text(
                 number,
@@ -338,17 +374,19 @@ class _StepCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(children: [
-                  Icon(icon, size: 16, color: Colors.grey.shade500),
-                  const SizedBox(width: 6),
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                Row(
+                  children: [
+                    Icon(icon, size: 16, color: Colors.grey.shade500),
+                    const SizedBox(width: 6),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                ]),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
                   subtitle,
@@ -389,12 +427,8 @@ class _DimField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 8, vertical: 12,
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       ),
     );
   }

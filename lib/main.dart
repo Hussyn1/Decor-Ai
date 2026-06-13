@@ -1,11 +1,11 @@
 // python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload      
+import 'package:decor_ar_fyp/controllers/project_controller_firestore.dart';
 import 'package:flutter/material.dart';
 import 'core/app_theme.dart';
 import 'package:get/get.dart';
 import 'screens/auth/splash_screen.dart';
 import 'controllers/catalog_controller.dart';
 import 'controllers/settings_controller.dart';
-import 'controllers/project_controller.dart';
 import 'controllers/three_d_generator_controller.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';

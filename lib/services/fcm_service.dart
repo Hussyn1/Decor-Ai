@@ -3,8 +3,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../screens/ar_view_screen.dart';
-import '../services/project_service.dart';
-
+import '../services/firestore_project_service.dart';
 /// Handles Firebase Cloud Messaging initialization, token retrieval,
 /// and routing to AR screen when the user taps a "model ready" notification.
 class FcmService {
