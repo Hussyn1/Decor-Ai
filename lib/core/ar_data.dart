@@ -33,7 +33,7 @@ class ArData {
   ];
 
   static const List<Map<String, dynamic>> furniture = [
-    // ── GLB Models (High Quality Sample Assets) ──
+    
     {
       'id': 'f1',
       'name': 'Sheen Chair',
@@ -152,7 +152,7 @@ class ArData {
       'surface': SurfaceType.floor,
     },
 
-    // ── Procedural Models (Perfectly sized, non-blurry, beautiful wood/fabrics) ──
+    
     {
       'id': 'p1',
       'name': 'Cozy Sofa',

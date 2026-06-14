@@ -328,7 +328,7 @@ class DiscoverScreen extends StatelessWidget {
   ) {
     _reimagineController.referenceImageUrl.value = imageUrl;
     _reimagineController.referenceStyleName.value = styleName;
-    _reimagineController.selectedImage.value = null; // Clear previous upload
+    _reimagineController.selectedImage.value = null; 
 
     showModalBottomSheet(
       context: context,
@@ -382,7 +382,7 @@ class ReimagineUploadSheet extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             
-            // Scrollable content area
+            
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -526,7 +526,7 @@ class ReimagineUploadSheet extends StatelessWidget {
 
             const SizedBox(height: 16),
             
-            // Fixed CTA Button / Loading at the bottom
+            
             if (controller.isGenerating.value)
               Container(
                 width: double.infinity,
@@ -604,7 +604,7 @@ class ReimagineUploadSheet extends StatelessWidget {
           return GestureDetector(
             onTap: () {
               controller.selectedStyle.value = style['name'] as String;
-              // If style reference was active, clear it when selecting a preset
+              
               controller.referenceStyleName.value = null;
               controller.referenceImageUrl.value = null;
             },

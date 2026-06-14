@@ -10,7 +10,7 @@ const {
 } = require('../controllers/projectController');
 const { protect } = require('../middleware/authMiddleware');
 
-// Use memory storage so we can pipe the buffer directly to Cloudinary
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.route('/').get(protect, getProjects).post(protect, createProject);

@@ -30,7 +30,7 @@ class HomeScreen extends StatelessWidget {
     final List<Widget> screens = [
       const HomeDashboard(),
       const ProjectsScreen(),
-      const SizedBox.shrink(), // AR is launched via navigation, not inline
+      const SizedBox.shrink(), 
       DiscoverScreen(),
       const SettingsScreen(),
     ];
@@ -62,7 +62,7 @@ class HomeScreen extends StatelessWidget {
             children: [
               _buildNavItem(controller, 0, 'Home', Icons.home_filled),
               _buildNavItem(controller, 1, 'Projects', Icons.grid_view_rounded),
-              const SizedBox(width: 60), // Space for fab
+              const SizedBox(width: 60), 
               _buildNavItem(controller, 3, 'Discover', Icons.explore),
               _buildNavItem(controller, 4, 'Settings', Icons.settings),
             ],
@@ -137,7 +137,7 @@ class HomeDashboard extends StatefulWidget {
 class _HomeDashboardState extends State<HomeDashboard> {
   final ProjectController _projectController = Get.put(ProjectController());
 
-  /// Formats a DateTime as a human-readable relative string.
+  
   String _formatRelativeTime(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return 'Just now';
@@ -163,7 +163,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
             _buildRecentProjectsHeader(),
             const SizedBox(height: 16),
             _buildRecentProjectsList(),
-            const SizedBox(height: 100), // Space for bottom nav
+            const SizedBox(height: 100), 
           ],
         ),
       ),
@@ -282,20 +282,21 @@ class _HomeDashboardState extends State<HomeDashboard> {
                 ),
               ),
             ),
-            Expanded(
+            
+          ],
+        ),
+        Expanded(
   child: GestureDetector(
     onTap: () => Get.to(() => const HomePlannerEntryScreen()),
     child: _buildToolCard(
       'Home Planner',
       'Scan room · Build plan · AR',
-      Icons.grid_4x4,
+      FontAwesomeIcons.drawPolygon,
       const Color(0xFFE8F5E9),
       Colors.green,
     ),
   ),
 ),
-          ],
-        ),
       ],
     );
   }
@@ -350,7 +351,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
         Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium),
         TextButton(
           onPressed: () {
-            // Navigate to Projects tab (index 1)
+            
             final homeController = Get.find<HomeController>();
             homeController.changeTabIndex(1);
           },
@@ -363,7 +364,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
   Widget _buildRecentProjectsList() {
     return Obx(() {
       if (_projectController.isLoading.value) {
-        // Loading skeleton
+        
         return Column(
           children: List.generate(
             3,
@@ -389,7 +390,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
       }
 
       if (_projectController.projects.isEmpty) {
-        // Empty state
+        
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 40),
           child: Center(
@@ -416,7 +417,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
         );
       }
 
-      // Show up to 3 most recent projects
+      
       final recentProjects = _projectController.projects.take(3).toList();
       return Column(
         children: recentProjects.map((project) {

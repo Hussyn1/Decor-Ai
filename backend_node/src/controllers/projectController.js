@@ -2,16 +2,16 @@ const mongoose = require('mongoose');
 const Project = require('../models/Project');
 const cloudinary = require('cloudinary').v2;
 
-// Configure Cloudinary
+
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// @desc    Get all user projects
-// @route   GET /api/projects
-// @access  Private
+
+
+
 const getProjects = async (req, res) => {
     try {
         console.log(`GET /api/projects - User: ${req.user.id}`);
@@ -24,9 +24,9 @@ const getProjects = async (req, res) => {
     }
 };
 
-// @desc    Create a new project
-// @route   POST /api/projects
-// @access  Private
+
+
+
 const createProject = async (req, res) => {
     console.log('POST /api/projects - Body:', JSON.stringify(req.body, null, 2));
     const { name, roomType, style, items, thumbnailUrl } = req.body;
@@ -54,9 +54,9 @@ const createProject = async (req, res) => {
     }
 };
 
-// @desc    Update a project
-// @route   PUT /api/projects/:id
-// @access  Private
+
+
+
 const updateProject = async (req, res) => {
     try {
         console.log(`PUT /api/projects/${req.params.id} - Body items count: ${req.body.items ? req.body.items.length : 0}`);
@@ -70,7 +70,7 @@ const updateProject = async (req, res) => {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Check for user
+        
         if (project.user.toString() !== req.user.id) {
             return res.status(401).json({ message: 'User not authorized' });
         }
@@ -88,9 +88,9 @@ const updateProject = async (req, res) => {
     }
 };
 
-// @desc    Delete a project
-// @route   DELETE /api/projects/:id
-// @access  Private
+
+
+
 const deleteProject = async (req, res) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -102,7 +102,7 @@ const deleteProject = async (req, res) => {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Check for user
+        
         if (project.user.toString() !== req.user.id) {
             return res.status(401).json({ message: 'User not authorized' });
         }
@@ -115,9 +115,9 @@ const deleteProject = async (req, res) => {
     }
 };
 
-// @desc    Upload a thumbnail image for a project
-// @route   POST /api/projects/:id/thumbnail
-// @access  Private
+
+
+
 const uploadThumbnail = async (req, res) => {
     try {
         if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -136,7 +136,7 @@ const uploadThumbnail = async (req, res) => {
             return res.status(400).json({ message: 'No image file provided' });
         }
 
-        // Upload buffer to Cloudinary
+        
         const result = await new Promise((resolve, reject) => {
             const stream = cloudinary.uploader.upload_stream(
                 { folder: 'decor_ar/thumbnails', resource_type: 'image' },
@@ -148,7 +148,7 @@ const uploadThumbnail = async (req, res) => {
             stream.end(req.file.buffer);
         });
 
-        // Patch project with Cloudinary URL
+        
         project.thumbnailUrl = result.secure_url;
         await project.save();
 

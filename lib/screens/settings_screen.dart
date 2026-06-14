@@ -153,7 +153,7 @@ class SettingsScreen extends StatelessWidget {
   }
 
   Widget _buildUserStats(BuildContext context) {
-    // We try to find controllers, if they are not initialized yet, we show placeholders
+    
     int projectCount = 0;
     int furnitureCount = 0;
 
@@ -428,7 +428,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); 
               Get.find<AuthController>().logout();
             },
             child: const Text(

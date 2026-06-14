@@ -3,7 +3,7 @@ import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsController extends GetxController {
-  // AR Settings
+  
   var enablePlaneDetection = true.obs;
   var enableHorizontalPlanes = true.obs;
   var enableVerticalPlanes = true.obs;
@@ -11,12 +11,12 @@ class SettingsController extends GetxController {
   var enableAutofocus = true.obs;
   var enableDepthSensing = false.obs;
 
-  // 2D to 3D Settings
-  var generationQuality = 'Medium'.obs; // Low, Medium, High
-  var textureResolution = '1024'.obs; // 512, 1024, 2048
+  
+  var generationQuality = 'Medium'.obs; 
+  var textureResolution = '1024'.obs; 
   var autoScaleModels = true.obs;
   
-  // App Settings
+  
   var isDarkMode = false.obs;
   var notificationsEnabled = true.obs;
   var selectedLanguage = 'English (US)'.obs;
@@ -30,7 +30,7 @@ class SettingsController extends GetxController {
   Future<void> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // AR
+    
     enablePlaneDetection.value = prefs.getBool('ar_plane_detection') ?? true;
     enableHorizontalPlanes.value = prefs.getBool('ar_horizontal_planes') ?? true;
     enableVerticalPlanes.value = prefs.getBool('ar_vertical_planes') ?? true;
@@ -38,12 +38,12 @@ class SettingsController extends GetxController {
     enableAutofocus.value = prefs.getBool('ar_autofocus') ?? true;
     enableDepthSensing.value = prefs.getBool('ar_depth_sensing') ?? false;
 
-    // 2D to 3D
+    
     generationQuality.value = prefs.getString('gen_quality') ?? 'Medium';
     textureResolution.value = prefs.getString('tex_resolution') ?? '1024';
     autoScaleModels.value = prefs.getBool('auto_scale') ?? true;
 
-    // App
+    
     isDarkMode.value = prefs.getBool('dark_mode') ?? false;
     notificationsEnabled.value = prefs.getBool('notifications') ?? true;
     selectedLanguage.value = prefs.getString('language') ?? 'English (US)';

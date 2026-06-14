@@ -33,7 +33,7 @@ class _AiStylistScreenState extends State<AiStylistScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // AI Status Card
+            
             _buildStatusCard(),
 
             const SizedBox(height: 32),

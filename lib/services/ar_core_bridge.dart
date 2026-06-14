@@ -13,7 +13,7 @@ class ArCoreBridge {
     }
   }
 
-  // Future methods: hostCloudAnchor, resolveCloudAnchor, etc.
+  
   Future<String?> hostCloudAnchor(String anchorId) async {
     try {
       final String? result = await platform.invokeMethod('hostCloudAnchor', {

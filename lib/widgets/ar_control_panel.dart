@@ -3,15 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:ar_flutter_plugin/models/ar_node.dart';
 import '../core/app_theme.dart';
 
-/// AR Control Panel Widget
-///
-/// Displays floating control buttons for AR scene manipulation:
-/// - Lock/unlock selected node
-/// - Toggle plane detection
-/// - Toggle LiDAR mesh
-/// - Toggle physics
-/// - Snap to wall
-/// - Undo/redo operations
+
+
+
+
+
+
+
+
+
 class ArControlPanel extends StatefulWidget {
   final ARNode? selectedNode;
   final bool isLocked;
@@ -62,7 +62,7 @@ class _ArControlPanelState extends State<ArControlPanel> {
       child: RepaintBoundary(
         child: Column(
           children: [
-            // Primary Lock Button
+            
             _buildControlButton(
               widget.isLocked ? Icons.lock : Icons.lock_open,
               color: widget.isLocked ? AppTheme.primaryBlue : Colors.white30,
@@ -71,7 +71,7 @@ class _ArControlPanelState extends State<ArControlPanel> {
             ),
             const SizedBox(height: 12),
 
-            // Expand/Collapse Toggle
+            
             _buildControlButton(
               _isExpanded ? Icons.keyboard_arrow_up : Icons.more_vert,
               onTap: () => setState(() => _isExpanded = !_isExpanded),
@@ -81,7 +81,7 @@ class _ArControlPanelState extends State<ArControlPanel> {
               label: _isExpanded ? "Less" : "More",
             ),
 
-            // Advanced Options (Animated visibility)
+            
             if (_isExpanded) ...[
               const SizedBox(height: 12),
               _buildControlButton(

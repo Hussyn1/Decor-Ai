@@ -1,13 +1,6 @@
-// ============================================================
-//  3D Floor Plan Editor — Advanced Version
-//  Features: Wood floor, colored walls, furniture library,
-//            FPS joystick walk-inside mode, wall color picker,
-//            realistic doors & windows with wall snapping
-// ============================================================
 
 'use strict';
 
-// ── Globals ───────────────────────────────────────────────────
 let scene, renderer, currentCamera;
 let camera3D, camera2D, cameraFPS;
 let orbitControls;
@@ -16,20 +9,18 @@ let wallGroup, floorMesh, ceilingMesh, gridHelper;
 let furnitureItems = [];
 let selectedItem = null;
 let is3DMode = false;
-let viewMode = '2d'; // '2d' | '3d' | 'fps'
+let viewMode = '2d';
 let raycaster, mouse;
 let dragPlane, isDragging = false;
 let dragOffset = new THREE.Vector3();
 let gltfLoader;
 
-// Wall colour (default warm white)
 let wallColor = new THREE.Color(0xF5F0E8);
 
-// FPS controller state
 const fpsState = {
   moveF: false, moveB: false, moveL: false, moveR: false,
-  yaw: 0,   // horizontal look angle (radians)
-  pitch: 0, // vertical look angle
+  yaw: 0,   
+  pitch: 0, 
   speed: 2.5,
   height: 1.6,
   joystickActive: false,
@@ -40,8 +31,6 @@ const fpsState = {
   lookActive: false,
 };
 let lastFPSTime = performance.now();
-
-// ── Built-in furniture presets ────────────────────────────────
 const FURNITURE_PRESETS = {
   sofa: {
     label: 'Sofa', w: 2.1, h: 0.85, d: 0.9,
@@ -103,28 +92,20 @@ const FURNITURE_PRESETS = {
   },
 };
 
-// ── Material helpers ──────────────────────────────────────────
 function mat(color, rough = 0.7, metal = 0.0, opts = {}) {
   return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal, ...opts });
 }
-
-// Wood grain texture (procedural canvas)
 function makeWoodTexture(w = 512, h = 512) {
   const canvas = document.createElement('canvas');
   canvas.width = w; canvas.height = h;
   const ctx = canvas.getContext('2d');
-
-  // Base warm brown
   ctx.fillStyle = '#8B6340';
   ctx.fillRect(0, 0, w, h);
-
-  // Plank lines
   const plankW = 80;
   ctx.strokeStyle = 'rgba(60,35,15,0.35)';
   ctx.lineWidth = 1.5;
   for (let x = 0; x < w; x += plankW) {
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-    // end seam per plank row
     for (let y = 0; y < h; y += 200) {
       ctx.beginPath();
       ctx.moveTo(x, y + (Math.random() * 80));
@@ -133,7 +114,6 @@ function makeWoodTexture(w = 512, h = 512) {
     }
   }
 
-  // Wood grain lines (horizontal, wavy)
   for (let i = 0; i < 120; i++) {
     const y0 = Math.random() * h;
     const alpha = 0.04 + Math.random() * 0.1;
@@ -147,7 +127,6 @@ function makeWoodTexture(w = 512, h = 512) {
     ctx.stroke();
   }
 
-  // Knots
   for (let k = 0; k < 4; k++) {
     const kx = Math.random() * w, ky = Math.random() * h;
     const rg = ctx.createRadialGradient(kx, ky, 0, kx, ky, 12);
@@ -188,16 +167,21 @@ function init() {
   currentCamera = camera2D;
 
   // Renderer
-  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.1;
+  if (THREE.ColorManagement) THREE.ColorManagement.enabled = true;
+  if (renderer.outputEncoding !== undefined) {
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  } else if (renderer.outputColorSpace !== undefined) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  }
   container.appendChild(renderer.domElement);
 
-  // Orbit controls (3D only)
   orbitControls = new THREE.OrbitControls(camera3D, renderer.domElement);
   orbitControls.enableDamping = true;
   orbitControls.dampingFactor = 0.06;
@@ -206,7 +190,6 @@ function init() {
   orbitControls.maxDistance = 25;
   orbitControls.enabled = false;
 
-  // Lighting
   const ambient = new THREE.AmbientLight(0xfff5e0, 0.65);
   scene.add(ambient);
 
@@ -964,11 +947,76 @@ window.addFurniture = function (id, type, name, w, d, modelUrl) {
   } else if (gltfLoader && modelUrl && modelUrl.trim()) {
     gltfLoader.load(modelUrl, (gltf) => {
       const model = gltf.scene;
-      const box = new THREE.Box3().setFromObject(model);
+      
+      // Calculate bounding box based on visible meshes only
+      const box = new THREE.Box3();
+      let hasMesh = false;
+      model.traverse(c => {
+        if (c.isMesh) {
+          const name = (c.name || "").toLowerCase();
+          if (name.includes("helper") || name.includes("grid") || name.includes("dome") || 
+              name.includes("skybox") || name.includes("background") || name.includes("camera") || 
+              name.includes("light")) {
+            return;
+          }
+          if (c.geometry) {
+            if (!c.geometry.boundingSphere) c.geometry.computeBoundingSphere();
+            if (c.geometry.boundingSphere && c.geometry.boundingSphere.radius > 50) {
+              return; // skip environment domes
+            }
+          }
+          box.expandByObject(c);
+          hasMesh = true;
+        }
+      });
+      
+      if (!hasMesh || box.isEmpty()) {
+        box.setFromObject(model);
+      }
+      
       const sz = box.getSize(new THREE.Vector3());
-      const sx = fw / sz.x, sz2 = fd / sz.z;
-      model.scale.set(sx, sx, sz2);
-      model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      if (sz.x === 0) sz.x = 1;
+      if (sz.y === 0) sz.y = 1;
+      if (sz.z === 0) sz.z = 1;
+      
+      // Scale uniformly to fit within fw and fd
+      const scaleX = fw / sz.x;
+      const scaleZ = fd / sz.z;
+      let scaleToUse = Math.min(scaleX, scaleZ);
+      
+      // Safe fallback if bounding box is calculated incorrectly
+      if (scaleToUse < 0.01 || scaleToUse > 100) {
+        scaleToUse = 1.0;
+      }
+      
+      const center = box.getCenter(new THREE.Vector3());
+      const min = box.min;
+      
+      // Apply uniform scale and offset model to place its pivot bottom-center
+      model.scale.set(scaleToUse, scaleToUse, scaleToUse);
+      model.position.set(-center.x * scaleToUse, -min.y * scaleToUse, -center.z * scaleToUse);
+      
+      // Traverse meshes to configure shadow casting/receiving and improve texture quality
+      model.traverse(c => {
+        if (c.isMesh) {
+          c.castShadow = true;
+          c.receiveShadow = true;
+          if (c.material) {
+            const materials = Array.isArray(c.material) ? c.material : [c.material];
+            materials.forEach(mat => {
+              if (mat.map) {
+                // Improve texture filtering and anisotropic sharpness
+                const maxAnisotropy = renderer.capabilities.getMaxAnisotropy() || 1;
+                mat.map.anisotropy = maxAnisotropy;
+                mat.map.minFilter = THREE.LinearMipmapLinearFilter;
+                mat.map.magFilter = THREE.LinearFilter;
+                mat.map.needsUpdate = true;
+              }
+            });
+          }
+        }
+      });
+      
       itemGroup.add(model);
       selectItem(data);
     }, undefined, () => {
@@ -1328,7 +1376,6 @@ function sendMessageToFlutter(handler, data) {
   }
 }
 
-// ── Animation loop ─────────────────────────────────────────────
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
@@ -1338,7 +1385,6 @@ function animate() {
   if (viewMode === '3d') orbitControls.update();
   if (viewMode === 'fps') updateFPS(dt);
 
-  // Spin selection ring
   if (selectedItem) {
     const ring = selectedItem.group.getObjectByName('sel_ring');
     if (ring) ring.rotation.z += 0.008;
@@ -1346,5 +1392,15 @@ function animate() {
 
   renderer.render(scene, currentCamera);
 }
+
+window.takeScreenshot = function () {
+  const ring = selectedItem ? selectedItem.group.getObjectByName('sel_ring') : null;
+  const ringVisible = ring ? ring.visible : false;
+  if (ring) ring.visible = false;
+  renderer.render(scene, currentCamera);
+  const dataUrl = renderer.domElement.toDataURL('image/png');
+  if (ring) ring.visible = ringVisible;
+  return dataUrl;
+};
 
 window.onload = init;

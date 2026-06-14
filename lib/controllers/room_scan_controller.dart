@@ -25,13 +25,13 @@ class RoomScanController extends GetxController {
       isScanning.value = true;
       scanResult.value = null;
 
-      // ✅ Wait longer so the overlay animation fully renders first
-      // before we hit the main thread with snapshot capture
+      
+      
       await Future.delayed(const Duration(milliseconds: 600));
 
       print("RoomScanController: Capturing AR view snapshot...");
 
-      // ✅ Capture snapshot in a separate microtask so UI stays responsive
+      
       final imageProvider = await Future.microtask(
         () => sessionManager.snapshot(),
       );
@@ -44,12 +44,12 @@ class RoomScanController extends GetxController {
 
       final Uint8List bytes = imageProvider.bytes;
 
-      // Give UI one frame to breathe
+      
       await Future.delayed(const Duration(milliseconds: 50));
 
       print("RoomScanController: Compressing image...");
 
-      // ✅ Must run on main isolate — platform channels can't use compute()
+      
       final Uint8List? compressed = await FlutterImageCompress.compressWithList(
         bytes,
         minWidth: 800,
@@ -152,4 +152,4 @@ class RoomScanController extends GetxController {
     resetCatalogFilters();
   }
 }
-// ✅ Must be top-level for compute() to work in a separate isolate
+

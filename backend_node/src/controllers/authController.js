@@ -3,16 +3,16 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const User = require('../models/User');
 
-// Generate JWT Token
+
 const generateToken = (id) => {
     return jwt.sign({ id }, process.env.JWT_SECRET, {
         expiresIn: '30d',
     });
 };
 
-// @desc    Register new user
-// @route   POST /api/auth/signup
-// @access  Public
+
+
+
 const registerUser = async (req, res) => {
     const { username, email, password } = req.body;
 
@@ -21,13 +21,13 @@ const registerUser = async (req, res) => {
     }
 
     try {
-        // Check if user exists
+        
         const userExists = await User.findOne({ email });
         if (userExists) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        // Create user
+        
         const user = await User.create({
             username,
             email,
@@ -52,14 +52,14 @@ const registerUser = async (req, res) => {
     }
 };
 
-// @desc    Authenticate a user
-// @route   POST /api/auth/login
-// @access  Public
+
+
+
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
-        // Check for user email
+        
         const user = await User.findOne({ email });
 
         if (user && (await user.matchPassword(password))) {
@@ -80,9 +80,9 @@ const loginUser = async (req, res) => {
     }
 };
 
-// @desc    Get user data
-// @route   GET /api/auth/me
-// @access  Private
+
+
+
 const getMe = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
@@ -99,9 +99,9 @@ const getMe = async (req, res) => {
     }
 };
 
-// @desc    Upload profile picture
-// @route   POST /api/auth/upload-profile-picture
-// @access  Private
+
+
+
 const uploadProfilePicture = async (req, res) => {
     try {
         if (!req.file) {
@@ -114,7 +114,7 @@ const uploadProfilePicture = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Cloudinary returns the URL in req.file.path
+        
         const profilePictureUrl = req.file.path;
 
         user.profilePicture = profilePictureUrl;
@@ -134,9 +134,9 @@ const uploadProfilePicture = async (req, res) => {
     }
 };
 
-// @desc    Update user profile (name, email, bio)
-// @route   PUT /api/auth/update-profile
-// @access  Private
+
+
+
 const updateProfile = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
@@ -147,7 +147,7 @@ const updateProfile = async (req, res) => {
 
         const { username, email, bio } = req.body;
 
-        // Check if email is taken by another user
+        
         if (email && email !== user.email) {
             const emailExists = await User.findOne({ email });
             if (emailExists) {
@@ -175,9 +175,9 @@ const updateProfile = async (req, res) => {
     }
 };
 
-// @desc    Forgot password — generate reset token
-// @route   POST /api/auth/forgot-password
-// @access  Public
+
+
+
 const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
@@ -189,24 +189,24 @@ const forgotPassword = async (req, res) => {
         const user = await User.findOne({ email });
 
         if (!user) {
-            // Return success even if user not found (security best practice)
+            
             return res.status(200).json({ message: 'If an account with that email exists, a reset code has been sent.' });
         }
 
-        // Generate 6-digit random code
+        
         const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
         const hashedToken = crypto.createHash('sha256').update(resetCode).digest('hex');
 
         user.resetPasswordToken = hashedToken;
-        user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 minutes
+        user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; 
         await user.save();
 
         console.log(`[AUTH] Password reset code for ${user.email} is: ${resetCode}`);
 
-        // If email env variables are set, send real email, else just log it
+        
         if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
             try {
-                // Send email using Nodemailer
+                
                 const nodemailer = require('nodemailer');
 
                 const transporter = nodemailer.createTransport({
@@ -240,7 +240,7 @@ const forgotPassword = async (req, res) => {
                 console.log(`[AUTH] Password reset email successfully sent to ${user.email}`);
             } catch (mailError) {
                 console.error('Nodemailer Error: Failed to send email:', mailError.message);
-                // Return 200 anyway so we don't leak information, but log the code in console for development/debugging
+                
                 console.log(`[FALLBACK CODE FOR DEV] Reset Code: ${resetCode}`);
             }
         } else {
@@ -256,9 +256,9 @@ const forgotPassword = async (req, res) => {
     }
 };
 
-// @desc    Reset password using token
-// @route   POST /api/auth/reset-password
-// @access  Public
+
+
+
 const resetPassword = async (req, res) => {
     try {
         const { email, code, newPassword } = req.body;
@@ -277,14 +277,14 @@ const resetPassword = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Hash code and compare with stored token
+        
         const hashedToken = crypto.createHash('sha256').update(code.trim()).digest('hex');
 
         if (user.resetPasswordToken !== hashedToken || user.resetPasswordExpire < Date.now()) {
             return res.status(400).json({ message: 'Invalid or expired password reset code' });
         }
 
-        // Update password (will be hashed by User schema pre-save hook)
+        
         user.password = newPassword;
         user.resetPasswordToken = undefined;
         user.resetPasswordExpire = undefined;
@@ -297,9 +297,9 @@ const resetPassword = async (req, res) => {
     }
 };
 
-// @desc    Change password (authenticated user)
-// @route   PUT /api/auth/change-password
-// @access  Private
+
+
+
 const changePassword = async (req, res) => {
     try {
         const { currentPassword, newPassword } = req.body;
@@ -318,13 +318,13 @@ const changePassword = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Verify current password
+        
         const isMatch = await user.matchPassword(currentPassword);
         if (!isMatch) {
             return res.status(401).json({ message: 'Current password is incorrect' });
         }
 
-        user.password = newPassword; // Will be hashed by pre-save hook
+        user.password = newPassword; 
         await user.save();
 
         res.status(200).json({ message: 'Password changed successfully' });
@@ -334,9 +334,9 @@ const changePassword = async (req, res) => {
     }
 };
 
-// @desc    Delete user account
-// @route   DELETE /api/auth/delete-account
-// @access  Private
+
+
+
 const deleteAccount = async (req, res) => {
     try {
         const user = await User.findById(req.user.id);
@@ -354,9 +354,9 @@ const deleteAccount = async (req, res) => {
     }
 };
 
-// @desc    Social login (Google/Apple)
-// @route   POST /api/auth/social-login
-// @access  Public
+
+
+
 const socialLogin = async (req, res) => {
     try {
         const { provider, email, username } = req.body;
@@ -365,11 +365,11 @@ const socialLogin = async (req, res) => {
             return res.status(400).json({ message: 'Email and provider are required' });
         }
 
-        // Find or create user
+        
         let user = await User.findOne({ email });
 
         if (!user) {
-            // Create new user with a random password (they'll use social login)
+            
             const randomPassword = crypto.randomBytes(16).toString('hex');
             user = await User.create({
                 username: username || email.split('@')[0],

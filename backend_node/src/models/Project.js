@@ -6,15 +6,15 @@ const furniturePlacementSchema = new mongoose.Schema({
         required: true
     },
     position: {
-        type: [Number], // [x, y, z]
+        type: [Number], 
         required: true
     },
     rotation: {
-        type: [Number], // [x, y, z, w]
+        type: [Number], 
         required: true
     },
     scale: {
-        type: [Number], // [x, y, z]
+        type: [Number], 
         required: true
     },
     cloudAnchorId: {

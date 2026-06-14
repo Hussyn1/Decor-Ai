@@ -3,7 +3,7 @@ import '../services/firestore_project_service.dart';
 import '../core/api_error_handler.dart';
 
 class ProjectController extends GetxController {
-  // ── swap: was ProjectService, now FirestoreProjectService ──
+  
   final FirestoreProjectService _service = FirestoreProjectService();
 
   var projects = <Project>[].obs;
@@ -31,7 +31,7 @@ class ProjectController extends GetxController {
     try {
       await _service.saveProject(project);
 
-      // Upsert in the local list — project.id is already updated by saveProject()
+      
       final idx = projects.indexWhere((p) => p.id == project.id);
       if (idx >= 0) {
         projects[idx] = project;

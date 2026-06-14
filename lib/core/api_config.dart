@@ -19,7 +19,7 @@ class ApiConfig {
       case Environment.local:
         return _localBackendUrl;
       case Environment.ngrok:
-        return _localBackendUrl; // ngrok now only used for AI, backend uses local
+        return _localBackendUrl; 
       case Environment.railway:
         return _railwayBackendUrl;
       case Environment.render:
@@ -34,7 +34,7 @@ class ApiConfig {
       case Environment.ngrok:
         return _ngrokAiUrl;
       case Environment.railway:
-        return _railwayBackendUrlAi; // ✅ AI service now deployed on Railway
+        return _railwayBackendUrlAi; 
       case Environment.render:
         return _renderAiUrl;
     }
@@ -43,6 +43,6 @@ class ApiConfig {
   static String get authEndpoint => '$backendBaseUrl/api/auth';
   static String get projectsEndpoint => '$backendBaseUrl/api/projects';
 
-  // Stability AI API Key — loaded from .env file (never hardcode secrets in source)
+  
   static String get stabilityApiKey => dotenv.env['STABILITY_API_KEY'] ?? '';
 }

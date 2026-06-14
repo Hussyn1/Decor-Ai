@@ -14,11 +14,11 @@ class ReimagineService {
     try {
       final request = http.MultipartRequest('POST', Uri.parse(_stabilityUrl));
       
-      // Add authentication and accept headers
+      
       request.headers['authorization'] = 'Bearer ${ApiConfig.stabilityApiKey}';
       request.headers['accept'] = 'image/*';
       
-      // Add the room image file
+      
       final fileStream = http.ByteStream(imageFile.openRead());
       final length = await imageFile.length();
       final multipartFile = http.MultipartFile(
@@ -29,17 +29,17 @@ class ReimagineService {
       );
       request.files.add(multipartFile);
 
-      // Add text prompt and other settings
+      
       request.fields['prompt'] = prompt;
       request.fields['output_format'] = 'jpeg';
       request.fields['control_strength'] = '0.7';
 
-      // Send the request
+      
       final streamedResponse = await request.send().timeout(const Duration(seconds: 45));
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        // Save the received binary bytes of the redesigned image to a local file
+        
         final dir = await getApplicationDocumentsDirectory();
         final file = File(
           '${dir.path}/reimagined_${DateTime.now().millisecondsSinceEpoch}.jpg',
@@ -47,7 +47,7 @@ class ReimagineService {
         await file.writeAsBytes(response.bodyBytes);
         return file.path;
       } else {
-        // Handle API errors
+        
         String errorMessage = 'Failed to generate room';
         if (response.statusCode == 401) {
           errorMessage = 'Unauthorized: Please check your Stability API Key.';

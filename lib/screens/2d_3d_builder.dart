@@ -24,10 +24,10 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
     super.initState();
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8), // 4 steps × 2s each
+      duration: const Duration(seconds: 8), 
     );
 
-    // Sync animation with GetX controller state
+    
     ever(controller.isGenerating, (bool isGenerating) {
       if (isGenerating) {
         _progressController.forward(from: 0.0);
@@ -177,7 +177,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
         final isGenerating = controller.isGenerating.value;
         final hasModel = controller.glbUrl.value.isNotEmpty;
 
-        // STATE 1: Model is ready — show interactive 3D viewer
+        
         if (hasModel && !isGenerating) {
           if (_isNavigatingContext) {
             return const Center(
@@ -196,7 +196,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
           }
           return Stack(
             children: [
-              // Interactive 3D model viewer
+              
               ModelViewer(
                 src: controller.localGlbPath.value.isNotEmpty 
                      ? 'file://${controller.localGlbPath.value}' 
@@ -205,12 +205,12 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                 ar: false,
                 autoRotate: true,
                 cameraControls: true,
-                backgroundColor: const Color(0xFFEEEEEE), // Light grey instead of black
+                backgroundColor: const Color(0xFFEEEEEE), 
                 shadowIntensity: 1.0,
                 autoRotateDelay: 0,
               ),
 
-              // Label
+              
               Positioned(
                 top: 20,
                 left: 20,
@@ -234,7 +234,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                 ),
               ),
 
-              // Fullscreen button
+              
               Positioned(
                 top: 20,
                 right: 20,
@@ -266,7 +266,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
           );
         }
 
-        // STATE 2: Generating or idle — show animated placeholder
+        
         return Stack(
           children: [
             const RepaintBoundary(
@@ -304,7 +304,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                       ),
                       child: Stack(
                         children: [
-                          // Liquid fill effect during generation
+                          
                           if (isGenerating)
                             Align(
                               alignment: Alignment.bottomCenter,
@@ -519,7 +519,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
             () => controller.glbUrl.value.isNotEmpty
                 ? Column(
                     children: [
-                      // View fullscreen button
+                      
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -550,7 +550,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                         ),
                       ),
                       const SizedBox(height: 12),
-                      // Place in room button
+                      
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(

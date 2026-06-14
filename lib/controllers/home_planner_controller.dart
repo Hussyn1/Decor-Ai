@@ -5,19 +5,19 @@ import '../models/room_dimensions.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 
 class HomePlannerController extends GetxController {
-  // Step tracking
-  final currentStep = 0.obs;   // 0=scan, 1=review, 2=plan, 3=preview
+  
+  final currentStep = 0.obs;   
 
-  // AR-measured corner points (raw world positions)
+  
   final cornerPoints = <vector.Vector3>[].obs;
 
-  // Derived room data
+  
   final Rx<RoomDimensions?> roomDimensions = Rx(null);
 
-  // UI state
+  
   final isProcessing = false.obs;
 
-  // ── Step 1: AR scanning ──────────────────────────────────────────────────
+  
 
   void addCornerPoint(vector.Vector3 worldPos) {
     cornerPoints.add(worldPos);
@@ -27,7 +27,7 @@ class HomePlannerController extends GetxController {
   void _computeDimensions() {
     if (cornerPoints.length < 2) return;
 
-    // Build wall segments between consecutive points
+    
     final walls = <WallSegment>[];
     for (int i = 0; i < cornerPoints.length; i++) {
       walls.add(WallSegment(
@@ -36,7 +36,7 @@ class HomePlannerController extends GetxController {
       ));
     }
 
-    // Compute bounding box width/depth from XZ plane
+    
     final xs = cornerPoints.map((p) => p.x).toList()..sort();
     final zs = cornerPoints.map((p) => p.z).toList()..sort();
     final width = double.parse((xs.last - xs.first).toStringAsFixed(2));
@@ -51,7 +51,7 @@ class HomePlannerController extends GetxController {
     );
   }
 
-  // ── Step 2: Manual override ──────────────────────────────────────────────
+  
 
   void setManualDimensions(double w, double d, {double h = 2.4}) {
     roomDimensions.value = RoomDimensions(
@@ -62,7 +62,7 @@ class HomePlannerController extends GetxController {
     );
   }
 
-  // ── Step 3: Floor plan editing ───────────────────────────────────────────
+  
 
   void addElement(FloorPlanElement el) {
     roomDimensions.value?.elements.add(el);
@@ -82,7 +82,7 @@ class HomePlannerController extends GetxController {
     roomDimensions.refresh();
   }
 
-  // ── Persistence ──────────────────────────────────────────────────────────
+  
 
   Future<void> save() async {
     if (roomDimensions.value == null) return;

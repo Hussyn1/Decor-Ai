@@ -32,7 +32,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     _controller.forward();
 
-    // Navigate to Login after animation
+    
     Future.delayed(const Duration(milliseconds: 3000), () {
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -72,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
         child: Stack(
           children: [
-            // Decorative background circles
+            
             Positioned(
               top: -100,
               right: -100,
@@ -111,7 +111,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                               ],
                             ),
                             child: const Icon(
-                              Icons.horizontal_distribute_rounded, // Conceptual AR logo
+                              Icons.horizontal_distribute_rounded, 
                               size: 80,
                               color: AppTheme.primaryBlue,
                             ),

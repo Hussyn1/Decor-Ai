@@ -88,7 +88,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
   SurfaceType _currentCenterSurface = SurfaceType.unknown;
   LightEstimate? _currentLightEstimate;
 
-  // ── Getters that proxy into ArViewController ──────────────────────────────
+  
   List<ARNode> get nodes => _arController.nodes;
   List<ARAnchor> get anchors => _arController.anchors;
   List<ARPlaneAnchor> get _verticalAnchors =>
@@ -124,7 +124,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
 
   late Project _currentProject;
 
-  // ── initState ─────────────────────────────────────────────────────────────
+  
   @override
   void initState() {
     super.initState();
@@ -196,7 +196,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     }
   }
 
-  // ── dispose — NO clearScene() to avoid racing _saveProject ───────────────
+  
   @override
   void dispose() {
     print("BREADCRUMB [$_sessionId]: DISPOSING");
@@ -206,7 +206,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     super.dispose();
   }
 
-  // ── build ─────────────────────────────────────────────────────────────────
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -242,7 +242,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
               ),
             ),
 
-          // Pinch-to-scale layer
+          
           if (selectedNode != null && !isLocked)
             Listener(
               behavior: HitTestBehavior.translucent,
@@ -275,7 +275,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
               },
             ),
 
-          // Top header bar
+          
           Positioned(
             top: 60, left: 20, right: 20,
             child: RepaintBoundary(
@@ -339,7 +339,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
                   onTap: removeAllAnchors),
               )),
 
-          // Camera controls
+          
           Positioned(
             bottom: 120, left: 0, right: 0,
             child: Row(
@@ -380,7 +380,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
             return const SizedBox.shrink();
           }),
 
-          // Smart crosshair
+          
           if (!isLocked && selectedNode == null)
             Center(
               child: ValueListenableBuilder<SurfaceType>(
@@ -431,7 +431,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     return surface == expected ? Colors.greenAccent : Colors.redAccent;
   }
 
-  // ── onARViewCreated ───────────────────────────────────────────────────────
+  
   void onARViewCreated(
     ARSessionManager arSessionManager,
     ARObjectManager arObjectManager,
@@ -456,7 +456,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     );
     this.arObjectManager!.onInitialize();
 
-    // Lighting — only trigger rebuild when crossing the 0.2 threshold
+    
     this.arSessionManager!.onLightEstimate = (LightEstimate estimate) {
       if (!mounted) return;
       final crossed = (_currentLightEstimate?.pixelIntensity ?? 0) < 0.2 !=
@@ -468,7 +468,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
       }
     };
 
-    // Center-crosshair surface poll — 500 ms, no setState unless surface changes
+    
     _centerHitTimer = Timer.periodic(const Duration(milliseconds: 500), (_) async {
       if (!mounted || this.arSessionManager == null || isLocked) return;
       try {
@@ -503,7 +503,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     print("BREADCRUMB [$_sessionId]: onARViewCreated DONE");
   }
 
-  // ── Placement ─────────────────────────────────────────────────────────────
+  
   Future<void> onPlaneOrPointTap(List<ARHitTestResult> hitTestResults) async {
     if (_isModelCaching) { _showStatus("Model still loading..."); return; }
 
@@ -523,14 +523,14 @@ class _ArViewScreenState extends State<ArViewScreen> {
 
       if (hitTestResults.isEmpty || isLocked) return;
 
-      // First tap on a project with saved items → restore
+      
       if (!_isRestored && widget.project != null) {
         _isRestored = true;
         await _groundDesign(hitTestResults.first);
         return;
       }
 
-      // Surface validation
+      
       final expectedSurface = _furniture[_selectedFurnitureIndex]['surface']
           as SurfaceType? ?? SurfaceType.floor;
 
@@ -550,20 +550,20 @@ class _ArViewScreenState extends State<ArViewScreen> {
         return;
       }
 
-      // Spatial dedup
+      
       final currentPos = validHit.worldTransform.getTranslation();
       if (_arController.lastPlacedPosition.value != null &&
           (_arController.lastPlacedPosition.value! - currentPos).length < 0.05) {
         return;
       }
 
-      // Collision
+      
       if (_checkCollision(currentPos, null)) {
         _showStatus("Too close to existing furniture!");
         return;
       }
 
-      // ── Place anchor + node ──────────────────────────────────────────────
+      
       final newAnchor = ARPlaneAnchor(transformation: validHit.worldTransform);
       if (await arAnchorManager!.addAnchor(newAnchor) != true) return;
       anchors.add(newAnchor);
@@ -578,7 +578,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
           ? _generatedModelUri!
           : _furniture[_selectedFurnitureIndex]['model'] as String;
 
-      // AR plugin wants filename only for local models
+      
       final safeUri = (isLocal && modelUri.contains('/'))
           ? modelUri.split('/').last
           : modelUri;
@@ -592,8 +592,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
         name: "furniture_${DateTime.now().millisecondsSinceEpoch}",
       );
 
-      // addNode with webGLB downloads the model — run after current frame
-      // so the AR engine isn't competing with Flutter layout on the main thread
+      
+      
       final didAdd = await Future.microtask(
         () => arObjectManager!.addNode(newNode, planeAnchor: newAnchor));
 
@@ -602,9 +602,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
         nodes.add(newNode);
         _nodeAnchors[newNode.name] = newAnchor;
 
-        // ── Store the ANCHOR'S world position, not node.position ────────────
-        // node.position is always [0,0,0] because it's relative to its anchor.
-        // The anchor's translation IS the world position we need to save.
+        
+        
+        
         _worldPositions[newNode.name] = currentPos;
 
         HapticFeedback.mediumImpact();
@@ -626,9 +626,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
     }
   }
 
-  // ── Save project ──────────────────────────────────────────────────────────
+  
   Future<void> _saveProject() async {
-    // Snapshot SYNCHRONOUSLY before any await lets dispose() race in
+    
     final List<ARNode> nodeSnapshot = List<ARNode>.from(nodes);
     final Map<String, vector.Vector3> posSnapshot = {
       for (final n in nodeSnapshot)
@@ -650,15 +650,15 @@ class _ArViewScreenState extends State<ArViewScreen> {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Saving...')));
 
-    // ── Compute centroid so items restore with correct relative spacing ──
-    // IMPORTANT: With a single item, centroid == its position, so relPos = [0,0,0].
-    // We handle this by storing a small non-zero offset for single-item scenes,
-    // OR — simpler — we just store the absolute world position directly and
-    // restore by offsetting from the tap point consistently.
-    //
-    // Strategy: store position relative to the FIRST item (index 0).
-    // On restore, item[0] lands at the tap point; others spread around it.
-    // This works correctly for 1, 2, or N items.
+    
+    
+    
+    
+    
+    
+    
+    
+    
     final anchor = posSnapshot[nodeSnapshot.first.name]!;
 
     print('[AR-SAVE] ${nodeSnapshot.length} items. Anchor (item 0): $anchor');
@@ -667,8 +667,8 @@ class _ArViewScreenState extends State<ArViewScreen> {
     for (int i = 0; i < nodeSnapshot.length; i++) {
       final node = nodeSnapshot[i];
       final worldPos = posSnapshot[node.name]!;
-      // Relative to item[0] — item[0] itself gets [0,0,0] which is fine
-      // because on restore it sits at the tap point (the user chose that spot).
+      
+      
       final relPos = worldPos - anchor;
 
       vector.Vector4 rot;
@@ -716,7 +716,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     }
   }
 
-  // ── Restore project ───────────────────────────────────────────────────────
+  
   Future<void> _loadProjectItems({ARHitTestResult? groundingHit}) async {
     if (arObjectManager == null || arAnchorManager == null) return;
     if (_isLoadingItems) return;
@@ -734,7 +734,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
       final tapPos = groundingHit.worldTransform.getTranslation();
       print('[AR-RESTORE] Tap pos: $tapPos');
 
-      // One root anchor for all restored items
+      
       final rootAnchor = ARPlaneAnchor(
         transformation: vector.Matrix4.identity()..setTranslation(tapPos));
       if (await arAnchorManager!.addAnchor(rootAnchor) != true) {
@@ -754,9 +754,9 @@ class _ArViewScreenState extends State<ArViewScreen> {
                   ? item.modelUri.split('/').last
                   : item.modelUri);
 
-          // item.position is relative to item[0].
-          // item[0] has position [0,0,0] → sits exactly at the tap point.
-          // Other items spread around it by their saved offset.
+          
+          
+          
           print('[AR-RESTORE]   ${safeUri.split('/').last} offset=${item.position}');
 
           final q = vector.Quaternion(item.rotation.x, item.rotation.y, item.rotation.z, item.rotation.w);
@@ -773,7 +773,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
             name: 'furniture_${DateTime.now().microsecondsSinceEpoch}',
           );
 
-          // Offload to microtask so model download doesn't block the frame
+          
           final didAdd = await Future.microtask(
             () => arObjectManager!.addNode(newNode, planeAnchor: rootAnchor));
 
@@ -788,7 +788,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
             print('[AR-RESTORE]   ❌ addNode returned false');
           }
 
-          // Stagger to avoid hammering AR engine and causing jank
+          
           await Future.delayed(const Duration(milliseconds: 300));
         } catch (e) {
           print('[AR-RESTORE] Error: $e');
@@ -837,7 +837,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     _isRestored = true;
   }
 
-  // ── Node interaction callbacks ────────────────────────────────────────────
+  
   void onNodeTap(List<String> nodeNames) {
     if (isLocked || nodeNames.isEmpty) return;
     final name = nodeNames.first;
@@ -889,7 +889,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     _worldPositions[nodeName] = worldPos;
   }
 
-  // ── Undo / redo ───────────────────────────────────────────────────────────
+  
   void _performUndo() {
     if (undoStack.isEmpty) { _showStatus("Nothing to undo"); return; }
     redoStack.add(_getCurrentState());
@@ -926,7 +926,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     redoStack.clear();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  
   bool _checkCollision(vector.Vector3 pos, ARNode? exclude) {
     for (final node in nodes) {
       if (node == exclude) continue;
@@ -1049,7 +1049,7 @@ class _ArViewScreenState extends State<ArViewScreen> {
     }
   }
 
-  // ── UI helpers ────────────────────────────────────────────────────────────
+  
   Widget _buildCaptureButton() {
     return GestureDetector(
       onTap: _isCapturing ? null : () async {

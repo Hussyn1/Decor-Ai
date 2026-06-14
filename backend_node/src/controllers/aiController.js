@@ -1,12 +1,10 @@
 const axios = require('axios');
 const FormData = require('form-data');
 
-/**
- * Controller for AI Operations
- */
+
 const generate3DModel = async (req, res, next) => {
     try {
-        // Check if file was uploaded
+        
         if (!req.file) {
             return res.status(400).json({
                 success: false,
@@ -14,12 +12,12 @@ const generate3DModel = async (req, res, next) => {
             });
         }
 
-        // The file path is the Cloudinary URL because we use CloudinaryStorage
+        
         const imageUrl = req.file.path;
 
         console.log(`Downloading image from Cloudinary: ${imageUrl}`);
 
-        // Download the image from Cloudinary into a buffer
+        
         const imageResponse = await axios.get(imageUrl, {
             responseType: 'arraybuffer',
             timeout: 30000,
@@ -30,7 +28,7 @@ const generate3DModel = async (req, res, next) => {
 
         console.log(`Image downloaded (${imageBuffer.length} bytes). Forwarding to AI Service as multipart...`);
 
-        // Forward as multipart/form-data to match FastAPI's UploadFile = File(...) signature
+        
         const aiServiceUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
         const form = new FormData();
         form.append('image', imageBuffer, {
@@ -42,7 +40,7 @@ const generate3DModel = async (req, res, next) => {
             headers: {
                 ...form.getHeaders(),
             },
-            timeout: 120000, // 2 min timeout for 3D generation
+            timeout: 120000, 
         });
 
         const { task_id, glb_url, message } = response.data;

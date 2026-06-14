@@ -17,8 +17,8 @@ class ProjectsScreen extends StatefulWidget {
 }
 
 class _ProjectsScreenState extends State<ProjectsScreen> {
-  // Use Get.put to make it available (or find if already put in Home/Binding)
-  // For now, put here to be safe as lazy singleton
+  
+  
   final ProjectController _projectController = Get.find<ProjectController>();
   String _selectedCategory = 'All';
 
@@ -68,7 +68,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 );
               }
 
-              // Filter logic (basic)
+              
               var displayProjects = _projectController.projects;
               if (_selectedCategory != 'All') {
                 displayProjects = _projectController.projects
@@ -97,11 +97,11 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             transition: Transition.fadeIn,
             duration: const Duration(milliseconds: 500),
           );
-          // ProjectController updates its list automatically if we called fetch/save there
-          // But CreateProjectScreen navigates to ArViewScreen, which Saves.
-          // When returning from ArViewScreen (Save), we might need to refresh if not using a global single stream.
-          // The helper _projectController.fetchProjects() is called in onInit.
-          // If we added a new project and saved it to disk, we should call fetchProjects again.
+          
+          
+          
+          
+          
           _projectController.fetchProjects();
         },
         backgroundColor: AppTheme.primaryBlue,
@@ -147,7 +147,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Widget _buildProjectCard(Project project) {
-    // Determine status based on last modified (Just for UI demo)
+    
     bool isRecent =
         DateTime.now().difference(project.lastModified).inHours < 24;
     String status = isRecent ? 'IN PROGRESS' : 'SAVED';
@@ -216,7 +216,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         } else {
           await Get.to(() => ArViewScreen(project: project));
         }
-        _projectController.fetchProjects(); // Refresh on return
+        _projectController.fetchProjects(); 
       },
       onLongPress: () {
         showDialog(

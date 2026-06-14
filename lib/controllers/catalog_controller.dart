@@ -22,14 +22,14 @@ class CatalogController extends GetxController {
     try {
       isLoading.value = true;
       final prefs = await SharedPreferences.getInstance();
-      // 1. Start with hardcoded furniture
+      
       List<Map<String, dynamic>> items = List.from(ArData.furniture);
-      // 2. Load generated ones from storage
+      
       final String? storedJson = prefs.getString(_storageKey);
       if (storedJson != null) {
         final List<dynamic> storedList = jsonDecode(storedJson);
         for (var item in storedList) {
-          // Convert surface back to enum from string if necessary
+          
           if (item['surface'] is String) {
             item['surface'] = _parseSurface(item['surface']);
           }
@@ -79,7 +79,7 @@ class CatalogController extends GetxController {
   List<Map<String, dynamic>> getRecommendedItems(List<dynamic> recommendations) {
     final recommended = <Map<String, dynamic>>[];
     for (var rec in recommendations) {
-      // rec can be FurnitureRecommendation or dynamic
+      
       final recStyle = rec.style.toString().toLowerCase();
       final recItem = rec.item.toString().toLowerCase();
       
@@ -119,11 +119,11 @@ class CatalogController extends GetxController {
       'is_generated': true,
     };
 
-    // Add to top of list
+    
     furnitureItems.insert(0, newItem);
     _unfilteredItems.insert(0, newItem);
     
-    // Persist
+    
     await _saveToStorage();
   }
 
@@ -132,7 +132,7 @@ class CatalogController extends GetxController {
       final prefs = await SharedPreferences.getInstance();
       final generatedOnly = furnitureItems.where((item) => item['is_generated'] == true).toList();
       
-      // Convert enums to strings for JSON
+      
       final serializable = generatedOnly.map((item) {
         final copy = Map<String, dynamic>.from(item);
         if (copy['surface'] is SurfaceType) {

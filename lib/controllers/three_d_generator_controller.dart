@@ -43,7 +43,7 @@ class ThreeDGeneratorController extends GetxController {
       final settingsController = Get.find<SettingsController>();
       print('[CONTROLLER-LOG] Starting 3D generation process with Quality: ${settingsController.generationQuality.value}, Res: ${settingsController.textureResolution.value}');
       
-      // Get the FCM token for background notifications
+      
       String? fcmToken;
       try {
         fcmToken = await FcmService().getToken();
@@ -60,7 +60,7 @@ class ThreeDGeneratorController extends GetxController {
       );
       print('[CONTROLLER-LOG] Task started successfully. TaskID: $taskId');
       
-      // 2. Poll Status
+      
       bool completed = false;
       int retryCount = 0;
       
@@ -77,14 +77,14 @@ class ThreeDGeneratorController extends GetxController {
           glbUrl.value = statusData['result'];
           statusMessage.value = "Generation Complete! Finalizing...";
           
-          // Download to cache for instant AR
+          
           statusMessage.value = "Preparing for AR...";
           final cachedFilename = await FurnitureAiService.downloadToCache(glbUrl.value);
           
           final appDir = await getApplicationDocumentsDirectory();
           
-          // Reconstruct the full absolute path for ModelViewer
-          // If the cachedFilename is somehow still a full URL (cache failed), use it directly
+          
+          
           if (cachedFilename.startsWith('http')) {
               localGlbPath.value = cachedFilename;
           } else {
@@ -93,14 +93,14 @@ class ThreeDGeneratorController extends GetxController {
           
           statusMessage.value = "Model ready!";
           
-          // 4. Register with Global Catalog
+          
           try {
             final catalogController = Get.find<CatalogController>();
             await catalogController.addGeneratedModel(
               name: "AI Furniture #${catalogController.furnitureItems.length + 1}",
               glbUrl: glbUrl.value,
               localPath: localGlbPath.value,
-              imageUrl: selectedImage.value!.path, // Use original picked image as thumbnail
+              imageUrl: selectedImage.value!.path, 
             );
             print('[CONTROLLER-LOG] Successfully added to persistent catalog');
           } catch (e) {

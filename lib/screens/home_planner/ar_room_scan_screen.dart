@@ -53,7 +53,7 @@ class _ArRoomScanScreenState extends State<ArRoomScanScreen> {
     final pos = hit.worldTransform.getTranslation();
     _controller.addCornerPoint(pos);
 
-    // Place a visual dot
+    
     final anchor = ARPlaneAnchor(transformation: hit.worldTransform);
     await _anchorManager!.addAnchor(anchor);
     final node = ARNode(
@@ -79,10 +79,10 @@ class _ArRoomScanScreenState extends State<ArRoomScanScreen> {
           planeDetectionConfig: PlaneDetectionConfig.horizontal,
         ),
 
-        // Crosshair
+        
         const Center(child: _Crosshair()),
 
-        // Top bar
+        
         Positioned(top: 52, left: 16, right: 16, child: Row(children: [
           _CircleBtn(Icons.arrow_back_ios_new, () => Navigator.pop(context)),
           const SizedBox(width: 12),
@@ -100,7 +100,7 @@ class _ArRoomScanScreenState extends State<ArRoomScanScreen> {
           )),
         ])),
 
-        // Instructions
+        
         Obx(() => _controller.cornerPoints.length < 4
           ? Positioned(bottom: 160, left: 0, right: 0, child: Center(
               child: Container(
@@ -114,9 +114,9 @@ class _ArRoomScanScreenState extends State<ArRoomScanScreen> {
               )))
           : const SizedBox.shrink()),
 
-        // Bottom controls
+        
         Positioned(bottom: 40, left: 0, right: 0, child: Column(children: [
-          // Place button
+          
           GestureDetector(
             onTap: _sessionReady ? _placeCorner : null,
             child: Container(
@@ -130,7 +130,7 @@ class _ArRoomScanScreenState extends State<ArRoomScanScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          // Proceed button
+          
           Obx(() => AnimatedOpacity(
             opacity: _controller.cornerPoints.length >= 4 ? 1.0 : 0.0,
             duration: const Duration(milliseconds: 300),
@@ -149,7 +149,7 @@ class _ArRoomScanScreenState extends State<ArRoomScanScreen> {
             ),
           )),
           const SizedBox(height: 8),
-          // Skip: enter manually
+          
           TextButton(
             onPressed: () => _showManualEntry(),
             child: const Text('Enter dimensions manually',

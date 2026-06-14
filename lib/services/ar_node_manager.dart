@@ -6,14 +6,14 @@ import 'package:ar_flutter_plugin/models/ar_node.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import '../models/result.dart';
 
-/// Service for managing AR nodes and anchors with proper error handling
-///
-/// Encapsulates all AR node/anchor operations to separate concerns
-/// and provide consistent error handling across the application.
+
+
+
+
 class ArNodeManager {
-  /// Add a furniture node to the AR scene
-  ///
-  /// Returns a Result containing the created node or an error message
+  
+  
+  
   Future<Result<ARNode>> addFurnitureNode({
     required ARObjectManager objectManager,
     required ARPlaneAnchor anchor,
@@ -46,7 +46,7 @@ class ArNodeManager {
     }
   }
 
-  /// Remove a specific node from the AR scene
+  
   Future<Result<void>> removeNode({
     required ARObjectManager objectManager,
     required ARNode node,
@@ -60,7 +60,7 @@ class ArNodeManager {
     }
   }
 
-  /// Remove all nodes from the AR scene
+  
   Future<Result<void>> removeAllNodes({
     required ARObjectManager objectManager,
     required List<ARNode> nodes,
@@ -76,7 +76,7 @@ class ArNodeManager {
     }
   }
 
-  /// Add an anchor to the AR scene
+  
   Future<Result<ARAnchor>> addAnchor({
     required ARAnchorManager anchorManager,
     required ARAnchor anchor,
@@ -95,7 +95,7 @@ class ArNodeManager {
     }
   }
 
-  /// Remove a specific anchor from the AR scene
+  
   Future<Result<void>> removeAnchor({
     required ARAnchorManager anchorManager,
     required ARAnchor anchor,
@@ -109,7 +109,7 @@ class ArNodeManager {
     }
   }
 
-  /// Update the texture of a node
+  
   Future<Result<void>> updateNodeTexture({
     required String nodeName,
     required String textureUrl,

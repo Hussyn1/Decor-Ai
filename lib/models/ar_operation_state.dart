@@ -1,7 +1,7 @@
-/// Represents the current state of an asynchronous AR operation.
+
 enum ArOperationStatus { idle, loading, success, error }
 
-/// Holds the state and potential error message for an operation.
+
 class ArOperationState {
   final ArOperationStatus status;
   final String? errorMessage;

@@ -11,7 +11,7 @@ class ModelViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA), // Light theme background
+      backgroundColor: const Color(0xFFF5F7FA), 
       appBar: AppBar(
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
@@ -37,7 +37,7 @@ class ModelViewerScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          // 3D Model Viewer
+          
           Expanded(
             child: ModelViewer(
               src: (glbUrl.startsWith('/') || glbUrl.contains('Application Documents')) && !glbUrl.startsWith('file://')
@@ -55,7 +55,7 @@ class ModelViewerScreen extends StatelessWidget {
             ),
           ),
 
-          // Bottom action bar
+          
           Container(
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             decoration: BoxDecoration(
@@ -76,7 +76,7 @@ class ModelViewerScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Drag handle
+                  
                   Container(
                     width: 40,
                     height: 4,
@@ -87,7 +87,7 @@ class ModelViewerScreen extends StatelessWidget {
                     ),
                   ),
 
-                  // Interaction hint
+                  
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -101,7 +101,7 @@ class ModelViewerScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Place in room button
+                  
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:decor_ar_fyp/controllers/catalog_controller.dart';
 import 'package:decor_ar_fyp/controllers/project_controller_firestore.dart';
 import 'package:decor_ar_fyp/screens/ar_view_screen.dart';
@@ -35,7 +36,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     _plannerCtrl = Get.put(RoomPlannerController());
     _catalogCtrl = Get.put(CatalogController());
 
-    // Initialize dimensions from project if available
+    
     if (_currentProject?.layoutData != null) {
       try {
         final Map<String, dynamic> data = jsonDecode(_currentProject!.layoutData!);
@@ -57,7 +58,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     }
   }
 
-  // ── Send room dimensions to Three.js ─────────────────────────
+  
   void _sendRoomDimensions() {
     if (!_webViewReady || _webViewController == null) return;
     final w = _plannerCtrl.roomWidth.value;
@@ -129,7 +130,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     );
   }
 
-  // ── Save project ────────────────────────────────────────────
+  
   Future<String?> _showNameDialog() async {
     String name = '';
     return showDialog<String>(
@@ -170,7 +171,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     );
   }
 
-  // ── Save project ────────────────────────────────────────────
+  
   Future<void> _saveProject() async {
     if (!_webViewReady || _webViewController == null) return;
     try {
@@ -178,14 +179,14 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
         source: "window.getLayoutData();",
       );
       if (result != null && result.toString().isNotEmpty) {
-        // The result from evaluateJavascript may be a JSON string wrapped in quotes
+        
         String jsonStr = result.toString();
-        // If it's double-encoded (string within string), decode once
+        
         if (jsonStr.startsWith('"') && jsonStr.endsWith('"')) {
           jsonStr = jsonDecode(jsonStr) as String;
         }
 
-        // Parse placements to create FurniturePlacement items
+        
         final Map<String, dynamic> layoutMap = jsonDecode(jsonStr);
         final placements = layoutMap['placements'] as List? ?? [];
         final items = placements.map((p) {
@@ -207,25 +208,45 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
           );
         }).toList();
 
-        // Get name
+        
         String? name = _currentProject?.name;
         if (name == null || name.isEmpty) {
           name = await _showNameDialog();
-          if (name == null || name.trim().isEmpty) return; // Cancelled
+          if (name == null || name.trim().isEmpty) return; 
         }
 
         final projectController = Get.find<ProjectController>();
         final newProject = Project(
-          id: _currentProject?.id ?? '', // empty id tells firestore to create a new doc
+          id: _currentProject?.id ?? '', 
           name: name,
           roomType: 'Living Room',
           style: 'Modern',
           lastModified: DateTime.now(),
           items: items,
           layoutData: jsonStr,
+          thumbnailPath: _currentProject?.thumbnailPath,
         );
 
         await projectController.saveProject(newProject);
+
+        try {
+          final screenshotData = await _webViewController!.evaluateJavascript(
+            source: "window.takeScreenshot();",
+          );
+          if (screenshotData != null &&
+              screenshotData.toString().startsWith('data:image/png;base64,')) {
+            final String base64Str = screenshotData
+                .toString()
+                .substring('data:image/png;base64,'.length);
+            final Uint8List bytes = base64Decode(base64Str);
+            final url = await FirestoreProjectService()
+                .uploadThumbnail(newProject.id, bytes);
+            newProject.thumbnailPath = url;
+          }
+        } catch (e) {
+          print('[THREE] Thumbnail upload failed: $e');
+        }
+
         setState(() {
           _currentProject = newProject;
         });
@@ -253,13 +274,13 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     }
   }
 
-  // ── Restore saved layout ────────────────────────────────────
+  
   Future<void> _restoreSavedLayout() async {
     if (!_webViewReady || _webViewController == null) return;
     final layoutJson = _currentProject?.layoutData;
     if (layoutJson == null || layoutJson.isEmpty) return;
     try {
-      // Escape the JSON string for injection into JS
+      
       final escaped = layoutJson
           .replaceAll('\\', '\\\\')
           .replaceAll("'", "\\'")
@@ -273,7 +294,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     }
   }
 
-  // ── Handle layout export ────────────────────────────────────
+  
   void _handleLayoutExport(Map<String, dynamic>? data) {
     if (data == null) return;
     try {
@@ -320,7 +341,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
     return item?['model'] ?? '';
   }
 
-  // ── Build ──────────────────────────────────────────────────
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -328,11 +349,11 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
       appBar: _buildAppBar(),
       body: Column(
         children: [
-          // Main area
+          
           Expanded(
             child: Row(
               children: [
-                // InAppWebView Container
+                
                 Expanded(
                   child: Stack(
                     children: [
@@ -350,14 +371,14 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
                         onWebViewCreated: (controller) {
                           _webViewController = controller;
 
-                          // JavaScript interfaces
+                          
                           controller.addJavaScriptHandler(
                             handlerName:
-                                'onUnityReady', // keep name for compatibility
+                                'onUnityReady', 
                             callback: (args) {
                               setState(() => _webViewReady = true);
                               _sendRoomDimensions();
-                              // Auto-restore saved layout after room is ready
+                              
                               Future.delayed(
                                 const Duration(milliseconds: 500),
                                 _restoreSavedLayout,
@@ -405,16 +426,16 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
                           );
                         },
                         onLoadStop: (controller, url) async {
-                          // Fallback: if the JS onUnityReady handler fired
-                          // before the bridge was connected, mark ready now.
+                          
+                          
                           if (!_webViewReady) {
                             setState(() => _webViewReady = true);
-                            // Small delay to ensure JS context is fully ready
+                            
                             await Future.delayed(
                               const Duration(milliseconds: 300),
                             );
                             _sendRoomDimensions();
-                            // Also try restoring in fallback path
+                            
                             Future.delayed(
                               const Duration(milliseconds: 500),
                               _restoreSavedLayout,
@@ -426,7 +447,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
                         },
                       ),
 
-                      // Loading overlay
+                      
                       if (!_webViewReady)
                         Container(
                           color: const Color(0xFF0F172A),
@@ -450,7 +471,7 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
                           ),
                         ),
 
-                      // Selection indicator
+                      
                       if (_selectedName != null)
                         Positioned(
                           top: 12,
@@ -478,13 +499,13 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
                   ),
                 ),
 
-                // Catalog sidebar
+                
                 if (_showSidebar) _buildCatalogSidebar(),
               ],
             ),
           ),
 
-          // Bottom toolbar
+          
           _buildToolbar(),
         ],
       ),
@@ -502,13 +523,13 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
         ),
       ),
       actions: [
-        // Save button
+        
         IconButton(
           icon: const Icon(Icons.save_outlined, color: Colors.white70),
           onPressed: _webViewReady ? _saveProject : null,
           tooltip: 'Save project',
         ),
-        // 2D/3D toggle
+        
         Container(
           margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
@@ -519,12 +540,12 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
             children: [_viewBtn('2D', !_is3DView), _viewBtn('3D', _is3DView)],
           ),
         ),
-        // Dimensions
+        
         IconButton(
           icon: const Icon(Icons.straighten, color: Colors.white70),
           onPressed: _showDimEditor,
         ),
-        // Sidebar
+        
         IconButton(
           icon: Icon(
             _showSidebar ? Icons.view_sidebar : Icons.view_sidebar_outlined,

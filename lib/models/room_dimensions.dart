@@ -28,9 +28,9 @@ enum FloorPlanElementType { door, window, furniture }
 class FloorPlanElement {
   final String id;
   final FloorPlanElementType type;
-  final String? modelUri;      // for furniture items
-  final String? catalogItemId; // links back to CatalogController
-  double xMeters;              // position within room (metres from top-left)
+  final String? modelUri;      
+  final String? catalogItemId; 
+  double xMeters;              
   double zMeters;
   double widthMeters;
   double depthMeters;

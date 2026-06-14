@@ -21,7 +21,7 @@ class _FloorPlanEditorScreenState extends State<FloorPlanEditorScreen> {
   double get _roomW => _planner.roomDimensions.value?.widthMeters ?? 4.0;
   double get _roomD => _planner.roomDimensions.value?.depthMeters ?? 3.5;
 
-  // Drag state
+  
   Offset? _dragStart;
   FloorPlanElement? _draggingEl;
 
@@ -235,7 +235,7 @@ class _FloorPlanEditorScreenState extends State<FloorPlanEditorScreen> {
     ]),
   );
 
-  // ── Canvas interaction helpers ──────────────────────────────────────────
+  
 
   Offset _worldToCanvas(double xM, double zM, Size canvasSize) {
     const margin = 40.0;
@@ -261,7 +261,7 @@ class _FloorPlanEditorScreenState extends State<FloorPlanEditorScreen> {
 
   void _handleCanvasTap(Offset localPos) {
     final rd = _planner.roomDimensions.value; if (rd == null) return;
-    // Door / window: tap on a wall edge to place
+    
     if (_activeTool == FloorPlanElementType.door ||
         _activeTool == FloorPlanElementType.window) {
       final renderBox = context.findRenderObject() as RenderBox;
@@ -277,7 +277,7 @@ class _FloorPlanEditorScreenState extends State<FloorPlanEditorScreen> {
       ));
       return;
     }
-    // Select existing element
+    
     final renderBox2 = context.findRenderObject() as RenderBox;
     final worldPos = _canvasToWorld(localPos, renderBox2.size);
     const margin = 40.0;
@@ -350,7 +350,7 @@ class _FloorPlanEditorScreenState extends State<FloorPlanEditorScreen> {
   }
 }
 
-// ── Custom painter ──────────────────────────────────────────────────────────
+
 
 class _FloorPlanPainter extends CustomPainter {
   final RoomDimensions roomDimensions;
@@ -384,7 +384,7 @@ class _FloorPlanPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Grid
+    
     final gridPaint = Paint()
       ..color = Colors.grey.withOpacity(0.12)
       ..strokeWidth = 0.5;
@@ -397,18 +397,18 @@ class _FloorPlanPainter extends CustomPainter {
       canvas.drawLine(p, p2, gridPaint);
     }
 
-    // Room floor fill
+    
     final floorRect = Rect.fromLTWH(origin.dx, origin.dy, rW * scale, rD * scale);
     canvas.drawRect(floorRect, Paint()..color = Colors.white);
 
-    // Walls
+    
     final wallPaint = Paint()
       ..color = const Color(0xFF1A1A2E)
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke;
     canvas.drawRect(floorRect, wallPaint);
 
-    // Dimension labels
+    
     final tp = (String text, Offset pos, {bool rotated = false}) {
       final span = TextSpan(
         text: text,
@@ -428,7 +428,7 @@ class _FloorPlanPainter extends CustomPainter {
     tp('${rW.toStringAsFixed(1)} m', Offset(origin.dx + rW * scale / 2, origin.dy - 14));
     tp('${rD.toStringAsFixed(1)} m', Offset(origin.dx - 20, origin.dy + rD * scale / 2), rotated: true);
 
-    // Elements
+    
     for (final el in roomDimensions.elements) {
       final cx = toCanvas(el.xMeters, el.zMeters);
       final rect = Rect.fromCenter(center: cx,
@@ -455,7 +455,7 @@ class _FloorPlanPainter extends CustomPainter {
             ..strokeWidth = isSelected ? 2 : 0.5
             ..style = PaintingStyle.stroke);
 
-      // Label
+      
       if (el.widthMeters * scale > 24) {
         final span = TextSpan(
           text: '${el.widthMeters.toStringAsFixed(1)}×${el.depthMeters.toStringAsFixed(1)}',

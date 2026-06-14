@@ -5,7 +5,7 @@ import 'package:vector_math/vector_math_64.dart' as vector;
 import 'package:http/http.dart' as http;
 import '../core/api_config.dart';
 
-/// Represents a single piece of furniture placed in the AR scene.
+
 class FurniturePlacement {
   final String modelUri;
   final vector.Vector3 position;
@@ -23,7 +23,7 @@ class FurniturePlacement {
   });
 
   Map<String, dynamic> toJson() {
-    // Sanitize values to prevent JSON encoding errors (NaN is not encodable)
+    
     double s(double val) => (val.isNaN || val.isInfinite) ? 0.0 : val;
 
     return {
@@ -75,7 +75,7 @@ class FurniturePlacement {
   }
 }
 
-/// Represents an entire AR design project.
+
 class Project {
   String id;
   String name;
@@ -83,7 +83,7 @@ class Project {
   String style;
   DateTime lastModified;
   List<FurniturePlacement> items;
-  String? thumbnailPath; // Optional: Setup for future screen capture
+  String? thumbnailPath; 
   String? layoutData;
 
   Project({
@@ -153,17 +153,17 @@ class ProjectService {
     return prefs.getString('auth_token');
   }
 
-  /// Save a project to Backend.
+  
   Future<void> saveProject(Project project) async {
     final token = await _getToken();
     if (token == null) throw Exception("Not authenticated");
 
-    // A project is considered new if its ID starts with 'temp_' or is not a valid MongoDB ObjectId (24 hex characters)
+    
     final bool isNew =
         project.id.startsWith('temp_') || project.id.length != 24;
     final url = isNew ? baseUrl : '$baseUrl/${project.id}';
 
-    // Log the payload for debugging
+    
     final String jsonBody = jsonEncode(project.toJson());
     print("DEBUG: Saving Project JSON: $jsonBody");
 
@@ -192,14 +192,14 @@ class ProjectService {
       throw Exception("Failed to save project: ${response.body}");
     }
 
-    // If it was a temp ID, update the project with the real DB ID
+    
     if (isNew) {
       final responseData = jsonDecode(response.body);
       project.id = responseData['_id'] ?? responseData['id'];
     }
   }
 
-  /// Load all saved projects from Backend.
+  
   Future<List<Project>> loadProjects() async {
     final token = await _getToken();
     if (token == null) return [];
@@ -225,7 +225,7 @@ class ProjectService {
     }
   }
 
-  /// Delete a project by ID from Backend.
+  
   Future<void> deleteProject(String id) async {
     final token = await _getToken();
     if (token == null) throw Exception("Not authenticated");
@@ -240,7 +240,7 @@ class ProjectService {
     }
   }
 
-  /// Upload project thumbnail to backend
+  
   Future<String> uploadThumbnail(String projectId, Uint8List bytes) async {
     final token = await _getToken();
     if (token == null) throw Exception("Not authenticated");

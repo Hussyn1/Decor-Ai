@@ -5,14 +5,14 @@ const path = require('path');
 require('dotenv').config();
 
 
-// Configure Cloudinary
+
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
     api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-// Set up Cloudinary storage
+
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
@@ -22,12 +22,12 @@ const storage = new CloudinaryStorage({
     },
 });
 
-// Init upload
+
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 }, // Increased to 10MB for high-res camera photos
+    limits: { fileSize: 10 * 1024 * 1024 }, 
     fileFilter: function (req, file, cb) {
-        // Redefine checkFileType logic here directly for clarity
+        
         const filetypes = /jpeg|jpg|png|gif|webp|heic/;
         const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
         const mimetype = filetypes.test(file.mimetype) || file.mimetype === 'application/octet-stream';

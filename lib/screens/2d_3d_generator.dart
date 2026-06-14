@@ -34,10 +34,10 @@ class ThreeDGeneratorScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // 1. Image Selection Area & 3D Preview (Conditional)
+            
             Obx(() {
               if (controller.glbUrl.value.isNotEmpty && !controller.isGenerating.value) {
-                // SHOW 3D PREVIEW
+                
                 return Container(
                   height: 350,
                   decoration: BoxDecoration(
@@ -88,7 +88,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                 );
               }
 
-              // SHOW IMAGE PICKER
+              
               return controller.selectedImage.value == null
                   ? InkWell(
                       onTap: () => controller.pickImage(),
@@ -135,7 +135,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                     );
             }),
 
-            // 2. Generate Button & Progress
+            
             Obx(
               () => Column(
                 children: [
@@ -211,7 +211,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 3. Status Message & Action
+            
             Obx(
               () => controller.statusMessage.value.isNotEmpty
                   ? Column(
@@ -243,7 +243,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => ArViewScreen(
-                                        // PASS LOCAL PATH IF READY, ELSE FALLBACK TO URL
+                                        
                                         initialModelUrl: controller.localGlbPath.value.isNotEmpty 
                                           ? controller.localGlbPath.value 
                                           : controller.glbUrl.value,

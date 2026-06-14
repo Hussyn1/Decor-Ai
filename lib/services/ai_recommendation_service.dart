@@ -50,13 +50,13 @@ class SpatialContext {
 
 class AiInsight {
   final String
-  type; // "Warning", "Suggestion", "Harmony", "Budget", "StyleConflict"
+  type; 
   final String title;
   final String message;
   final double impactScore;
-  final List<double>? suggestedPosition; // [x, y, z] for Magic Arrange
-  final String? suggestedAction; // e.g., "FILTER_STYLE"
-  final String? suggestedValue; // e.g., "Industrial"
+  final List<double>? suggestedPosition; 
+  final String? suggestedAction; 
+  final String? suggestedValue; 
 
   AiInsight({
     required this.type,

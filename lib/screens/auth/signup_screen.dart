@@ -22,7 +22,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
   final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  // Find the controller initialized in LoginScreen, or put it if missing
+  
   final AuthController _authController = Get.isRegistered<AuthController>() 
       ? Get.find<AuthController>() 
       : Get.put(AuthController());
@@ -139,7 +139,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                       ),
                       GestureDetector(
                         onTap: () {
-                          Get.back(); // Return to Login
+                          Get.back(); 
                         },
                         child: const Text(
                           'Login',

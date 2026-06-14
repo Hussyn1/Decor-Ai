@@ -40,7 +40,7 @@ class RoomScanResultPanel extends StatelessWidget {
           ),
           child: Column(
             children: [
-              // Drag Indicator handle
+              
               const SizedBox(height: 12),
               Center(
                 child: Container(
@@ -54,7 +54,7 @@ class RoomScanResultPanel extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              // Title and Close Button
+              
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -97,33 +97,33 @@ class RoomScanResultPanel extends StatelessWidget {
               const SizedBox(height: 8),
               const Divider(height: 1, thickness: 1),
 
-              // Scrollable Body
+              
               Expanded(
                 child: ListView(
                   controller: scrollController,
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                   children: [
-                    // Harmony Score & Key Details
+                    
                     _buildOverviewCard(theme, isDark),
                     const SizedBox(height: 20),
 
-                    // Detected Wall Colors
+                    
                     _buildWallColorsSection(theme, isDark),
                     const SizedBox(height: 20),
 
-                    // Furniture Recommendations
+                    
                     _buildFurnitureRecommendations(theme, isDark, controller),
                     const SizedBox(height: 20),
 
-                    // Color Recommendations
+                    
                     _buildColorRecommendations(theme, isDark),
                     const SizedBox(height: 20),
 
-                    // Layout Tips
+                    
                     _buildLayoutTips(theme, isDark),
                     const SizedBox(height: 20),
 
-                    // Conflicts
+                    
                     if (result.conflicts.isNotEmpty) ...[
                       _buildConflictsSection(theme, isDark),
                       const SizedBox(height: 20),
@@ -159,7 +159,7 @@ class RoomScanResultPanel extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Circular Progress Harmony Gauge
+          
           Stack(
             alignment: Alignment.center,
             children: [
@@ -198,7 +198,7 @@ class RoomScanResultPanel extends StatelessWidget {
           ),
           const SizedBox(width: 20),
 
-          // Details List
+          
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -419,7 +419,7 @@ class RoomScanResultPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    // Action Buttons for Filtering Catalog
+                    
                     Row(
                       children: [
                         Expanded(

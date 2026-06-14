@@ -15,7 +15,7 @@ class RoomScanOverlay extends StatelessWidget {
     double totalWallArea = 0;
 
     for (var plane in planes) {
-      // Rough area estimation using extents (width * height/depth)
+      
       double area = plane.extentX * plane.extentZ;
       if (plane.type == SurfaceType.floor || plane.type == SurfaceType.ceiling) {
         totalFloorArea += area;
@@ -125,7 +125,7 @@ class _AiScanningOverlayState extends State<AiScanningOverlay> with SingleTicker
         color: Colors.black.withOpacity(0.55),
         child: Stack(
           children: [
-            // Sweeping Laser Line
+            
             AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
@@ -156,7 +156,7 @@ class _AiScanningOverlayState extends State<AiScanningOverlay> with SingleTicker
               },
             ),
             
-            // Outer Glow Scan Box
+            
             Center(
               child: Container(
                 width: MediaQuery.of(context).size.width * 0.8,
@@ -167,7 +167,7 @@ class _AiScanningOverlayState extends State<AiScanningOverlay> with SingleTicker
                 ),
                 child: Stack(
                   children: [
-                    // Corner brackets
+                    
                     Positioned(
                       top: 10, left: 10,
                       child: Container(width: 20, height: 20, decoration: const BoxDecoration(border: Border(top: BorderSide(color: Colors.cyan, width: 4), left: BorderSide(color: Colors.cyan, width: 4)))),
@@ -185,7 +185,7 @@ class _AiScanningOverlayState extends State<AiScanningOverlay> with SingleTicker
                       child: Container(width: 20, height: 20, decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.cyan, width: 4), right: BorderSide(color: Colors.cyan, width: 4)))),
                     ),
                     
-                    // Scanning Text and Loading indicator
+                    
                     Center(
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),

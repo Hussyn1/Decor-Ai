@@ -10,10 +10,10 @@ class LightEstimationBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     if (estimate == null) return const SizedBox.shrink();
 
-    // Map pixel intensity (0.0 to 1.0) to a visual state
-    // Below 0.2: Too Dark
-    // 0.2 - 0.7: Good
-    // Above 0.7: Very Bright
+    
+    
+    
+    
     IconData icon;
     Color color;
     String label;

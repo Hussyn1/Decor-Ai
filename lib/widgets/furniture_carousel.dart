@@ -4,10 +4,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 import 'dart:io';
 
-/// Furniture Carousel Widget
-///
-/// Displays a horizontal scrollable list of furniture items
-/// with selection highlighting and shimmer loading effects.
+
+
+
+
 class FurnitureCarousel extends StatelessWidget {
   final List<Map<String, dynamic>> furniture;
   final int selectedIndex;
@@ -82,13 +82,13 @@ class FurnitureCarousel extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Furniture Image with Shimmer
+            
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: _buildImage(item['image']),
             ),
             const SizedBox(height: 4),
-            // Furniture Name
+            
             Text(
               item['name'],
               style: const TextStyle(
@@ -107,11 +107,11 @@ class FurnitureCarousel extends StatelessWidget {
   }
 
   Widget _buildImage(String imageSource) {
-    // Detect if it's a local file path
+    
     final bool isLocalFile =
         imageSource.startsWith('/') ||
         imageSource.contains('Application Documents') ||
-        imageSource.contains('com.example'); // Heuristic for local path
+        imageSource.contains('com.example'); 
 
     if (isLocalFile) {
       return Image.file(

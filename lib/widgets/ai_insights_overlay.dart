@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../services/ai_recommendation_service.dart';
 import '../core/app_theme.dart';
 
-/// AI Insights Overlay Widget
-///
-/// Displays AI-generated recommendations, budget tracking,
-/// and auto-arrange functionality for the AR scene.
-/// Now expanded/collapsed to be less intrusive.
+
+
+
+
+
 class AiInsightsOverlay extends StatefulWidget {
   final List<AiInsight> activeInsights;
   final bool isAnalyzing;
@@ -46,12 +46,12 @@ class _AiInsightsOverlayState extends State<AiInsightsOverlay> {
       right: 16,
       child: Column(
         crossAxisAlignment:
-            CrossAxisAlignment.end, // Align to right for expanding
+            CrossAxisAlignment.end, 
         children: [
-          // AI Analyzing Indicator (Always visible when active)
+          
           if (widget.isAnalyzing) _buildAnalyzingIndicator(),
 
-          // Insights Toggle / List
+          
           if (widget.activeInsights.isNotEmpty) ...[
             GestureDetector(
               onTap: () => setState(() => _isExpanded = !_isExpanded),
@@ -151,7 +151,7 @@ class _AiInsightsOverlayState extends State<AiInsightsOverlay> {
     IconData icon = Icons.info_outline;
     Color color = Colors.blueAccent;
 
-    // Map string types to icons and colors
+    
     switch (insight.type.toLowerCase()) {
       case 'warning':
       case 'styleconflict':
@@ -245,10 +245,10 @@ class _AiInsightsOverlayState extends State<AiInsightsOverlay> {
                     padding: const EdgeInsets.only(top: 8.0),
                     child: GestureDetector(
                       onTap: () {
-                        // We will handle this in the parent screen via MagicArrange callback
-                        // or a new callback. Let's reuse onMagicArrange or extend the widget.
-                        // For now, let's reuse onMagicArrange as a'Generic Action' handler if possible
-                        // Or just let it be handled by the parent if we passed it.
+                        
+                        
+                        
+                        
                         widget.onMagicArrange!(insight);
                       },
                       child: Container(

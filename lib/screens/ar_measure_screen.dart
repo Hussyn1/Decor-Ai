@@ -41,34 +41,34 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   List<ARNode> nodes = [];
   List<ARAnchor> anchors = [];
   List<vector.Vector3> worldPositions = [];
-  List<ARNode> lineNodes = []; // permanent confirmed lines
+  List<ARNode> lineNodes = []; 
 
-  // Live preview
+  
   vector.Vector3? _livePosition;
   ARNode? _liveLineNode;
-  bool _isUpdatingPreview = false; // guard against concurrent preview updates
-  bool _justPlacedPoint = false; // cooldown flag after placing a point
-  int _lineNodeCounter = 0; // unique ID counter for line nodes
+  bool _isUpdatingPreview = false; 
+  bool _justPlacedPoint = false; 
+  int _lineNodeCounter = 0; 
   Timer? _frameTimer;
 
-  // Dashed line animation
+  
   late AnimationController _dashAnimController;
   late Animation<double> _dashOffset;
 
-  // Crosshair lock animation
+  
   late AnimationController _crosshairPulseController;
   late Animation<double> _crosshairScale;
 
   MeasureMode _currentMode = MeasureMode.distance;
   double lastDistance = 0.0;
-  double _liveDistance = 0.0; // live distance while aiming
+  double _liveDistance = 0.0; 
   double calculatedArea = 0.0;
   double calculatedHeight = 0.0;
   List<Map<String, dynamic>> measurementHistory = [];
   bool _isSessionReady = false;
-  bool _isLockedOnPlane = false; // crosshair hit a plane?
+  bool _isLockedOnPlane = false; 
 
-  // Premium Features State
+  
   SurfaceType _currentSurface = SurfaceType.unknown;
   LightEstimate? _lightEstimate;
   List<DetectedPlane> _detectedPlanes = [];
@@ -77,14 +77,14 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   void initState() {
     super.initState();
 
-    // Dashed line marching-ants animation
+    
     _dashAnimController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
     )..repeat();
     _dashOffset = Tween<double>(begin: 0, end: 1).animate(_dashAnimController);
 
-    // Crosshair pulse when locked
+    
     _crosshairPulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
@@ -106,12 +106,12 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     super.dispose();
   }
 
-  // ─── AR INIT ──────────────────────────────────────────────────────────────
+  
   void onARViewCreated(
     ARSessionManager? arSessionManager,
     ARObjectManager? arObjectManager,
     ARAnchorManager? arAnchorManager,
-    ARLocationManager arLocationManager,  // ✅ add this missing parameter
+    ARLocationManager arLocationManager,  
   )
   
   {
@@ -119,7 +119,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   this.arObjectManager = arObjectManager;
   this.arAnchorManager = arAnchorManager;
 
-  // CHANGE: defer heavy init off the navigation frame
+  
   Future.microtask(() {
     this.arSessionManager!.onInitialize(
       showFeaturePoints: false,
@@ -145,7 +145,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   });
 }
 
-  // ─── FRAME LOOP: poll center-screen hit every 50ms ────────────────────────
+  
   void _startFrameLoop() {
     _frameTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
       _updateLivePosition();
@@ -154,7 +154,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
   Future<void> _updateLivePosition() async {
     if (arSessionManager == null) return;
-    // Skip if we're still processing a previous preview update or in cooldown
+    
     if (_isUpdatingPreview || _justPlacedPoint) return;
 
     try {
@@ -212,34 +212,34 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     }
   }
 
-  // ─── LIVE PREVIEW LINE (from last point → crosshair) ─────────────────────
-  // The "dashed" appearance is simulated in AR by using a very thin,
-  // slightly transparent node. The actual dashed visual lives in the
-  // Flutter overlay (Canvas) drawn on top of the AR view.
+  
+  
+  
+  
   Future<void> _updateLivePreview(
     vector.Vector3 from,
     vector.Vector3 to,
   ) async {
-    // Guard: prevent concurrent updates which cause duplicate nodes
+    
     if (_isUpdatingPreview) return;
     _isUpdatingPreview = true;
 
     try {
-      // Remove old preview first and wait for it to complete
+      
       if (_liveLineNode != null) {
         final oldNode = _liveLineNode!;
-        _liveLineNode = null; // clear reference BEFORE async removal
+        _liveLineNode = null; 
         await arObjectManager?.removeNode(oldNode);
       }
 
-      // Create a new clean preview line using the shared helper
+      
       _liveLineNode = await _createLineNode(from, to, permanent: false);
     } finally {
       _isUpdatingPreview = false;
     }
   }
 
-  // ─── PLACE POINT (crosshair button tapped) ────────────────────────────────
+  
   Future<void> _placePointAtCrosshair() async {
     if (_livePosition == null || !_isLockedOnPlane) return;
     if (_currentMode == MeasureMode.roomScan) return;
@@ -249,8 +249,8 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
       return;
     }
 
-    // Activate cooldown: stops the frame loop from creating new preview lines
-    // while we're placing a point and promoting the live line
+    
+    
     _justPlacedPoint = true;
 
     try {
@@ -267,13 +267,13 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
       anchors.add(newAnchor);
       worldPositions.add(pos);
 
-      // Permanent endpoint dot — use a unique name
+      
       _lineNodeCounter++;
       var newNode = ARNode(
         type: NodeType.localGLTF2,
         name: 'point_dot_$_lineNodeCounter',
         uri: "assets/models/sphere.gltf",
-        scale: vector.Vector3(0.04, 0.04, 0.04), // Increased from 0.018
+        scale: vector.Vector3(0.04, 0.04, 0.04), 
         position: vector.Vector3(0, 0, 0),
         rotation: vector.Vector4(1, 0, 0, 0),
       );
@@ -283,20 +283,20 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
       );
       if (added == true) nodes.add(newNode);
 
-      // Promote the current live line to a permanent confirmed line.
-      // We need to create a NEW dedicated node for the permanent line
-      // (with the final calculated transform) rather than reusing the
-      // live preview node — this avoids the frame loop from accidentally
-      // removing/modifying it.
+      
+      
+      
+      
+      
       if (worldPositions.length >= 2) {
-        // Remove the live preview node — we'll create a clean permanent one
+        
         if (_liveLineNode != null) {
           final previewToRemove = _liveLineNode!;
           _liveLineNode = null;
           await arObjectManager?.removeNode(previewToRemove);
         }
 
-        // Create the permanent line between the last two points
+        
         final from = worldPositions[worldPositions.length - 2];
         final to = worldPositions.last;
         final permanentLine = await _createLineNode(from, to, permanent: true);
@@ -308,16 +308,16 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
       _updateMeasurements();
       setState(() {});
 
-      // Brief cooldown to let the AR engine settle before the frame loop
-      // starts creating new preview lines again
+      
+      
       await Future.delayed(const Duration(milliseconds: 150));
     } finally {
       _justPlacedPoint = false;
     }
   }
 
-  /// Creates a line (Box.glb stretched) between two world points.
-  /// Returns the ARNode if successfully added, null otherwise.
+  
+  
   Future<ARNode?> _createLineNode(
     vector.Vector3 from,
     vector.Vector3 to, {
@@ -343,7 +343,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
 
     _lineNodeCounter++;
     final prefix = permanent ? 'perm_line' : 'live_line';
-    final thickness = permanent ? 0.01 : 0.006; // Increased thickness
+    final thickness = permanent ? 0.01 : 0.006; 
     final node = ARNode(
       type: NodeType.localGLTF2,
       name: '${prefix}_$_lineNodeCounter',
@@ -355,7 +355,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     return node;
   }
 
-  // ─── MEASUREMENTS ─────────────────────────────────────────────────────────
+  
   void _updateMeasurements() {
     if (worldPositions.length < 2) return;
     if (_currentMode == MeasureMode.distance) {
@@ -384,7 +384,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     return area.abs() / 2.0;
   }
 
-  // ─── UNDO ─────────────────────────────────────────────────────────────────
+  
   Future<void> _undoLastPoint() async {
     if (worldPositions.isEmpty) return;
     if (nodes.isNotEmpty) {
@@ -404,7 +404,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     setState(() {});
   }
 
-  // ─── SAVE / EXPORT ────────────────────────────────────────────────────────
+  
   void _saveMeasurement() {
     String value = "";
     String type = "";
@@ -426,7 +426,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
       });
     });
 
-    // Automatically reset the session so user can start a new measurement immediately
+    
     _resetSession();
   }
 
@@ -470,7 +470,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     await OpenFilex.open(file.path);
   }
 
-  // ─── RESET ────────────────────────────────────────────────────────────────
+  
   void _resetSession() {
     _frameTimer?.cancel();
     if (_liveLineNode != null) arObjectManager?.removeNode(_liveLineNode!);
@@ -495,20 +495,20 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     _startFrameLoop();
   }
 
-  // ─── BUILD ────────────────────────────────────────────────────────────────
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── AR View (no tap handling — button only) ──
+          
           ARView(
             onARViewCreated: onARViewCreated,
             planeDetectionConfig: PlaneDetectionConfig.horizontalAndVertical,
           ),
 
-          // ── Dashed line Flutter overlay (marching-ants over AR) ──
+          
           if (worldPositions.isNotEmpty && _isSessionReady)
             Positioned.fill(
               child: IgnorePointer(
@@ -524,10 +524,10 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
               ),
             ),
 
-          // ── Crosshair ──
+          
           Center(child: _buildCrosshair()),
 
-          // ── Top Header ──
+          
           Positioned(
             top: 50,
             left: 20,
@@ -555,7 +555,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
             ),
           ),
 
-          // ── Hint ──
+          
           if (worldPositions.isEmpty && _isSessionReady)
             Positioned(
               bottom: 200,
@@ -579,7 +579,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
               ),
             ),
 
-          // ── Bottom Controls ──
+          
           Positioned(
             bottom: 40,
             left: 20,
@@ -598,7 +598,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
                       worldPositions.isNotEmpty,
                       _undoLastPoint,
                     ),
-                    _buildCrosshairPlaceButton(), // ← THE KEY BUTTON
+                    _buildCrosshairPlaceButton(), 
                     _buildActionFab(
                       Icons.refresh,
                       worldPositions.isNotEmpty ||
@@ -613,7 +613,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
               ],
             ),
           ),
-          // ── Light Estimation Badge ──
+          
           Positioned(
             top: 50,
             right: 20,
@@ -624,7 +624,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     );
   }
 
-  // ── Crosshair place button (big center button) ────────────────────────────
+  
   Widget _buildCrosshairPlaceButton() {
     final bool canAdd =
         _isLockedOnPlane &&
@@ -666,7 +666,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     );
   }
 
-  // ── Animated crosshair ────────────────────────────────────────────────────
+  
   Widget _buildCrosshair() {
     if (_currentMode == MeasureMode.roomScan) return const SizedBox.shrink();
 
@@ -707,7 +707,7 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     );
   }
 
-  // ── Mode selector ─────────────────────────────────────────────────────────
+  
   Widget _buildModeSelector() {
     return Container(
       padding: const EdgeInsets.all(4),
@@ -758,11 +758,11 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
     );
   }
 
-  // ── Measurement card ──────────────────────────────────────────────────────
+  
   Widget _buildMeasurementCard() {
     if (_currentMode == MeasureMode.roomScan) return const SizedBox.shrink();
 
-    // While aiming (1 point placed), show live distance
+    
     final bool isAiming = worldPositions.isNotEmpty && _liveDistance > 0;
 
     String value = "--";
@@ -959,23 +959,23 @@ class _ArMeasureScreenState extends State<ArMeasureScreen>
   }
 }
 
-// ─── CUSTOM PAINTERS ──────────────────────────────────────────────────────────
 
-/// Draws the animated dashed line overlay on the Flutter layer.
-/// This is a 2D screen-space approximation — it draws from screen center
-/// toward the bottom of the measurement card area to give visual feedback.
-/// The real 3D line is handled by the AR node.
+
+
+
+
+
 class _DashedLinePainter extends CustomPainter {
-  final double offset; // 0.0 → 1.0 marching animation
+  final double offset; 
   final bool isLocked;
 
   const _DashedLinePainter({required this.offset, required this.isLocked});
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Only draw when there's an active measurement in progress —
-    // the AR node handles the actual 3D line; this just adds the
-    // animated dashed glow overlay on the 2D screen
+    
+    
+    
     final center = Offset(size.width / 2, size.height / 2);
 
     final paint = Paint()
@@ -984,7 +984,7 @@ class _DashedLinePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
 
-    // Draw a small pulsing ring around center to indicate "live line active"
+    
     final ringPaint = Paint()
       ..color = (isLocked ? Colors.orangeAccent : Colors.white54).withOpacity(
         0.4 + offset * 0.4,
@@ -994,7 +994,7 @@ class _DashedLinePainter extends CustomPainter {
 
     canvas.drawCircle(center, 18 + offset * 6, ringPaint);
 
-    // Dashed arc segments radiating outward (marching ants effect)
+    
     const dashLen = 8.0;
     const gapLen = 6.0;
     const radius = 26.0;
@@ -1016,7 +1016,7 @@ class _DashedLinePainter extends CustomPainter {
       old.offset != offset || old.isLocked != isLocked;
 }
 
-/// Custom crosshair that shows locked vs searching state
+
 class _CrosshairPainter extends CustomPainter {
   final bool isLocked;
   final Color primaryColor;
@@ -1034,11 +1034,11 @@ class _CrosshairPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     final r = size.width / 2;
-    final gap = r * 0.3; // gap around center dot
+    final gap = r * 0.3; 
     final lineLen = r * 0.45;
 
-    // Four corner L-brackets (like Apple Measure app)
-    // Top-left
+    
+    
     canvas.drawLine(
       Offset(center.dx - gap - lineLen, center.dy - gap),
       Offset(center.dx - gap, center.dy - gap),
@@ -1049,7 +1049,7 @@ class _CrosshairPainter extends CustomPainter {
       Offset(center.dx - gap, center.dy - gap),
       paint,
     );
-    // Top-right
+    
     canvas.drawLine(
       Offset(center.dx + gap + lineLen, center.dy - gap),
       Offset(center.dx + gap, center.dy - gap),
@@ -1060,7 +1060,7 @@ class _CrosshairPainter extends CustomPainter {
       Offset(center.dx + gap, center.dy - gap),
       paint,
     );
-    // Bottom-left
+    
     canvas.drawLine(
       Offset(center.dx - gap - lineLen, center.dy + gap),
       Offset(center.dx - gap, center.dy + gap),
@@ -1071,7 +1071,7 @@ class _CrosshairPainter extends CustomPainter {
       Offset(center.dx - gap, center.dy + gap),
       paint,
     );
-    // Bottom-right
+    
     canvas.drawLine(
       Offset(center.dx + gap + lineLen, center.dy + gap),
       Offset(center.dx + gap, center.dy + gap),
@@ -1083,7 +1083,7 @@ class _CrosshairPainter extends CustomPainter {
       paint,
     );
 
-    // Center dot
+    
     canvas.drawCircle(
       center,
       isLocked ? 4 : 3,

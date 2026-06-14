@@ -6,15 +6,15 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 
-// ─── Models ──────────────────────────────────────────────────────────────────
-// Drop-in replacements for the classes in your existing project_service.dart
+
+
 
 class FurniturePlacement {
   final String modelUri;
   final vector.Vector3 position;
   final vector.Vector4 rotation;
   final vector.Vector3 scale;
-  final String? cloudAnchorId; // kept for compat, never used
+  final String? cloudAnchorId; 
 
   FurniturePlacement({
     required this.modelUri,
@@ -98,15 +98,15 @@ class Project {
   }
 }
 
-// ─── Firestore Service ────────────────────────────────────────────────────────
+
 
 class FirestoreProjectService {
   final _db      = FirebaseFirestore.instance;
   final _storage = FirebaseStorage.instance;
 
-  /// Returns a stable user identifier.
-  /// Tries Firebase Auth first, then falls back to the MongoDB _id stored
-  /// by your existing AuthController so no auth migration is required.
+  
+  
+  
   Future<String?> _getUserId() async {
     final firebaseUser = FirebaseAuth.instance.currentUser;
     if (firebaseUser != null) return firebaseUser.uid;
@@ -120,17 +120,17 @@ class FirestoreProjectService {
         if (uid != null && uid.isNotEmpty) return uid;
       } catch (_) {}
     }
-    // Last resort: use the token itself as a stable key
+    
     return prefs.getString('auth_token');
   }
 
   CollectionReference<Map<String, dynamic>> _col(String uid) =>
       _db.collection('users').doc(uid).collection('projects');
 
-  // ── SAVE ────────────────────────────────────────────────────────────────────
+  
 
-  /// Saves (or upserts) a project.  
-  /// Updates [project.id] in-place when a new project gets a real Firestore ID.
+  
+  
   Future<void> saveProject(Project project) async {
     final uid = await _getUserId();
     if (uid == null) throw Exception('Not authenticated');
@@ -149,7 +149,7 @@ class FirestoreProjectService {
       'lastModified': project.lastModified.toIso8601String(),
       'thumbnailUrl': project.thumbnailPath,
       'layoutData':   project.layoutData,
-      // Serialize each placement as a plain map — no Cloud Anchor IDs needed
+      
       'items': project.items.map((i) => i.toJson()).toList(),
       'updatedAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -162,7 +162,7 @@ class FirestoreProjectService {
     }
   }
 
-  // ── LOAD ALL ─────────────────────────────────────────────────────────────────
+  
 
   Future<List<Project>> loadProjects() async {
     final uid = await _getUserId();
@@ -175,7 +175,7 @@ class FirestoreProjectService {
 
       return snap.docs.map((doc) {
         final data = Map<String, dynamic>.from(doc.data());
-        data['id'] = doc.id; // inject real Firestore doc ID
+        data['id'] = doc.id; 
         return Project.fromJson(data);
       }).toList();
     } catch (e) {
@@ -184,7 +184,7 @@ class FirestoreProjectService {
     }
   }
 
-  // ── LOAD SINGLE ──────────────────────────────────────────────────────────────
+  
 
   Future<Project?> loadProject(String projectId) async {
     final uid = await _getUserId();
@@ -202,7 +202,7 @@ class FirestoreProjectService {
     }
   }
 
-  // ── DELETE ───────────────────────────────────────────────────────────────────
+  
 
   Future<void> deleteProject(String id) async {
     final uid = await _getUserId();
@@ -211,7 +211,7 @@ class FirestoreProjectService {
     print('[Firestore] Deleted project $id');
   }
 
-  // ── THUMBNAIL ────────────────────────────────────────────────────────────────
+  
 
   Future<String> uploadThumbnail(String projectId, Uint8List bytes) async {
     final uid = await _getUserId();
@@ -221,7 +221,7 @@ class FirestoreProjectService {
     await ref.putData(bytes, SettableMetadata(contentType: 'image/png'));
     final url = await ref.getDownloadURL();
 
-    // Persist URL back to the project document
+    
     await _col(uid).doc(projectId).update({'thumbnailUrl': url});
     return url;
   }

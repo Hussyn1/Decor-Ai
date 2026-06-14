@@ -74,7 +74,7 @@ class _PrivacySecurityScreenState extends State<PrivacySecurityScreen> {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); 
               await _authController.deleteAccount();
             },
             child: const Text(

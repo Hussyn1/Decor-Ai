@@ -24,7 +24,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
   
   final AuthController _authController = Get.find<AuthController>();
 
-  // Page index: 0 for entering email, 1 for entering code and new password
+  
   int _currentStep = 0;
 
   @override
@@ -98,7 +98,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
 
     final success = await _authController.resetPassword(email, code, newPassword);
     if (success) {
-      Get.back(); // Go back to login screen
+      Get.back(); 
     }
   }
 
@@ -126,7 +126,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 20),
-                    // App Branding / Icon
+                    
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(

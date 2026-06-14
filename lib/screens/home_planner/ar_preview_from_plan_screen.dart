@@ -18,13 +18,13 @@ import '../../controllers/catalog_controller.dart';
 import '../../models/room_dimensions.dart';
 import '../../core/app_theme.dart';
 
-/// Converts a 2D floor plan into a full 3D AR room experience.
-///
-/// Phase 1 — "Ground" tap: User taps the floor once to anchor the layout.
-/// Phase 2 — Furniture + walls spawn around that tap point.
-///
-/// Walls are thin GLB-less ARNodes rendered as scaled white boxes using the
-/// ar_flutter_plugin's built-in cube geometry (no external model needed).
+
+
+
+
+
+
+
 class ArPreviewFromPlanScreen extends StatefulWidget {
   const ArPreviewFromPlanScreen({super.key});
 
@@ -41,13 +41,13 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
   final HomePlannerController _planner = Get.find<HomePlannerController>();
   final CatalogController _catalog = Get.find<CatalogController>();
 
-  bool _grounded = false; // Has the user tapped the floor yet?
-  bool _spawning = false; // Are we mid-spawn?
+  bool _grounded = false; 
+  bool _spawning = false; 
   int _spawnedCount = 0;
   int _totalToSpawn = 0;
   String _statusMsg = 'Tap your floor to place the room';
 
-  // Track spawned nodes so we can clear them
+  
   final List<ARNode> _spawnedNodes = [];
   final List<ARAnchor> _spawnedAnchors = [];
 
@@ -63,20 +63,20 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ── AR View ───────────────────────────────────────────────────────
+          
           ARView(
             onARViewCreated: _onARViewCreated,
             planeDetectionConfig: PlaneDetectionConfig.horizontal,
           ),
 
-          // ── Top bar ───────────────────────────────────────────────────────
+          
           Positioned(
             top: 52,
             left: 16,
             right: 16,
             child: Row(
               children: [
-                // Back button
+                
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
@@ -94,7 +94,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // "From floor plan" badge
+                
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -121,7 +121,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
                   ),
                 ),
                 const Spacer(),
-                // Reset button
+                
                 if (_grounded)
                   GestureDetector(
                     onTap: _resetScene,
@@ -142,7 +142,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
             ),
           ),
 
-          // ── Status / progress overlay ─────────────────────────────────────
+          
           Positioned(
             bottom: 80,
             left: 24,
@@ -153,7 +153,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
             ),
           ),
 
-          // ── Room legend (shows after grounded) ────────────────────────────
+          
           if (_grounded && !_spawning)
             Positioned(top: 120, right: 16, child: _buildLegend()),
         ],
@@ -252,7 +252,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     ],
   );
 
-  // ── AR init ───────────────────────────────────────────────────────────────
+  
 
   void _onARViewCreated(
     ARSessionManager session,
@@ -276,7 +276,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     objects.onInitialize();
   }
 
-  // ── Tap handler ───────────────────────────────────────────────────────────
+  
 
   Future<void> _onTap(List<ARHitTestResult> hits) async {
     if (_grounded || _spawning) return;
@@ -302,49 +302,49 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     });
   }
 
-  // ── Main spawn logic ──────────────────────────────────────────────────────
+  
 
   Future<void> _spawnRoom(vector.Vector3 tapPos) async {
     final rd = _planner.roomDimensions.value;
     if (rd == null || _objects == null || _anchors == null) return;
 
-    // Collect what needs spawning
+    
     final furnitureEls = rd.elements
         .where((e) => e.type == FloorPlanElementType.furniture)
         .toList();
 
-    // 4 walls + N furniture
+    
     _totalToSpawn = 4 + furnitureEls.length;
     _spawnedCount = 0;
 
     final W = rd.widthMeters;
     final D = rd.depthMeters;
     final wallH = rd.heightMeters ?? 2.4;
-    const wallT = 0.05; // wall thickness in metres
+    const wallT = 0.05; 
 
-    // ── Spawn walls ───────────────────────────────────────────────────────
-    // Each wall is a scaled unit-cube GLB (white, semi-transparent look).
-    // We use a tiny built-in GLB that's just a 1×1×1 white cube.
-    // If you have a local cube.glb in assets/models, use fileSystemAppFolderGLB.
-    // Otherwise use a public 1×1 cube model URL.
+    
+    
+    
+    
+    
     const cubeUri =
         'https://github.com/KhronosGroup/glTF-Sample-Models/raw/main/2.0/Box/glTF-Binary/Box.glb';
 
-    // Wall definitions: [xOffset, zOffset, scaleX, scaleZ, label]
+    
     final walls = [
-      // North wall (z = 0)
+      
       _WallDef(
         pos: vector.Vector3(tapPos.x, tapPos.y + wallH / 2, tapPos.z),
         scale: vector.Vector3(W, wallH, wallT),
         label: 'North',
       ),
-      // South wall (z = D)
+      
       _WallDef(
         pos: vector.Vector3(tapPos.x, tapPos.y + wallH / 2, tapPos.z + D),
         scale: vector.Vector3(W, wallH, wallT),
         label: 'South',
       ),
-      // West wall (x = 0)
+      
       _WallDef(
         pos: vector.Vector3(
           tapPos.x - W / 2,
@@ -354,7 +354,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
         scale: vector.Vector3(wallT, wallH, D),
         label: 'West',
       ),
-      // East wall (x = W)
+      
       _WallDef(
         pos: vector.Vector3(
           tapPos.x + W / 2,
@@ -380,7 +380,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
       await Future.delayed(const Duration(milliseconds: 200));
     }
 
-    // ── Spawn furniture ───────────────────────────────────────────────────
+    
     for (final el in furnitureEls) {
       final catalogMatch = _catalog.furnitureItems.firstWhereOrNull((item) {
         final dims = item['dims'] as List?;
@@ -396,8 +396,8 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
           ? uri
           : (uri.contains('/') ? uri.split('/').last : uri);
 
-      // Convert floor-plan 2D coords to 3D world position
-      // Floor plan origin = top-left corner = tapPos in world
+      
+      
       final worldX = tapPos.x + (el.xMeters - W / 2);
       final worldZ = tapPos.z + (el.zMeters - D / 2);
       final worldPos = vector.Vector3(worldX, tapPos.y, worldZ);
@@ -437,13 +437,13 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     if (_objects == null || _anchors == null) return;
 
     try {
-      // Place anchor at floor level (anchorAt.y = tapPos.y)
+      
       final anchorMatrix = vector.Matrix4.identity()..setTranslation(anchorAt);
       final anchor = ARPlaneAnchor(transformation: anchorMatrix);
       if (await _anchors!.addAnchor(anchor) != true) return;
       _spawnedAnchors.add(anchor);
 
-      // Node position is relative to its anchor
+      
       final relPos = position - anchorAt;
 
       final node = ARNode(
@@ -476,7 +476,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
   }
 }
 
-// ── Simple wall definition ─────────────────────────────────────────────────
+
 
 class _WallDef {
   final vector.Vector3 pos;

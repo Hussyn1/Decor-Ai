@@ -11,9 +11,9 @@ class ReimagineController extends GetxController {
   var isGenerating = false.obs;
   var progressMessage = 'Starting generation...'.obs;
   var selectedImage = Rxn<File>();
-  var styleImage = Rxn<File>(); // Custom style inspiration image
+  var styleImage = Rxn<File>(); 
   var selectedStyle = 'Modern'.obs;
-  var customPrompt = ''.obs; // New field for custom prompt instructions
+  var customPrompt = ''.obs; 
   var referenceImageUrl = Rxn<String>();
   var referenceStyleName = Rxn<String>();
   
@@ -45,7 +45,7 @@ class ReimagineController extends GetxController {
     
     if (image != null) {
       styleImage.value = File(image.path);
-      // Clear preset selections when a custom image is chosen
+      
       referenceImageUrl.value = null;
       referenceStyleName.value = null;
       selectedStyle.value = 'Custom';
@@ -96,7 +96,7 @@ class ReimagineController extends GetxController {
       isGenerating.value = true;
       progressMessage.value = 'Uploading your room photo...';
 
-      // Small delay so user sees the message
+      
       await Future.delayed(const Duration(milliseconds: 500));
       progressMessage.value = 'AI is redesigning your room...';
 
@@ -111,7 +111,7 @@ class ReimagineController extends GetxController {
       progressMessage.value = 'Finalizing...';
       isGenerating.value = false;
 
-      // Navigate to results screen
+      
       Get.to(() => ReimagineViewerScreen(
         originalImage: selectedImage.value!,
         generatedImageUrl: imageUrl,

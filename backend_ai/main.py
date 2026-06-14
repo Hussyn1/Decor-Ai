@@ -37,12 +37,12 @@ from firebase_admin import credentials, messaging
 
 _executor = ThreadPoolExecutor(max_workers=3)
 
-# Load environment variables
+
 load_dotenv()
 HF_TOKEN = os.getenv("HF_TOKEN")
 TRIPO_API_KEY = os.getenv("TRIPO_API_KEY")
 
-# Configure Cloudinary
+
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
     api_key=os.getenv("CLOUDINARY_API_KEY"),
@@ -50,7 +50,7 @@ cloudinary.config(
     secure=True
 )
 
-# Initialize Firebase Admin SDK for push notifications
+
 try:
     firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON")
     firebase_b64 = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64")
@@ -82,25 +82,25 @@ except Exception as _fe:
 
 app = FastAPI(title="Spatial AI Recommendation Service")
 
-# Create static directory if it doesn't exist
+
 os.makedirs("static/generated", exist_ok=True)
 os.makedirs("static/uploads", exist_ok=True)
 
-# Mount static files to serve generated models
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# --- BACKGROUND TASKS TRACKING ---
-# Dictionary to store task status: {task_id: {"status": str, "progress": int, "message": str, "result": str}}
+
+
 TASKS = {}
 SCAN_CACHE = {}
 
 import hashlib
 
-# ── Floor Plan models ─────────────────────────────────────────────────────────
+
 
 class PlacedElement(BaseModel):
     id: str
-    type: str           # "furniture" | "door" | "window"
+    type: str           
     x_meters: float
     z_meters: float
     width_meters: float
@@ -116,27 +116,27 @@ class FloorPlanRequest(BaseModel):
     style_preference: Optional[str] = "Modern"
     room_type: Optional[str] = "Living Room"
 
-# --- DATA MODELS ---
+
 
 class FurnitureMetadata(BaseModel):
     id: str
     name: str
-    style: str  # e.g., "Minimalist", "Industrial", "Bohemian"
+    style: str  
     base_color: str
-    dimensions: List[float]  # [width, height, depth] in meters
+    dimensions: List[float]  
 
 class SpatialContext(BaseModel):
-    room_area: float  # sqm
+    room_area: float  
     placed_furniture: List[FurnitureMetadata]
     available_catalog: List[FurnitureMetadata]
 
 class AIResponse(BaseModel):
-    type: str  # "Warning", "Suggestion", "Harmony"
+    type: str  
     title: str
     message: str
-    impact_score: float  # 0 to 1
-    suggested_action: Optional[str] = None  # e.g., "FILTER_STYLE"
-    suggested_value: Optional[str] = None   # e.g., "Industrial"
+    impact_score: float  
+    suggested_action: Optional[str] = None  
+    suggested_value: Optional[str] = None   
 
 class ThreeDResponse(BaseModel):
     glb_url: str
@@ -186,7 +186,7 @@ class RoomScanResult(BaseModel):
     conflicts: List[str]
     overall_summary: str
 
-# --- CORE LOGIC ---
+
 
 STYLE_RULES = {
     "Minimalist": ["Scandi", "Modern", "Japanese"],
@@ -258,12 +258,12 @@ class TripoService:
         url = f"{self.base_url}/task"
         payload = {
             "type": "image_to_model",
-            "model_version": "v2.0-20240919",  # v2 is significantly faster than v3.1
+            "model_version": "v2.0-20240919",  
             "file": {"type": "jpg", "file_token": image_token},
-            "pbr": False,         # Biggest speedup — skips full material baking pass (~40% faster)
+            "pbr": False,         
             "texture": True,
-            "face_limit": 10000,  # Lower poly = faster mesh generation, still good quality
-            "texture_size": 512   # 512 vs 1024 = 4x less texture work on Tripo's side
+            "face_limit": 10000,  
+            "texture_size": 512   
         }
         response = requests.post(url, headers=self.headers, json=payload, timeout=30)
         data = response.json()
@@ -282,7 +282,7 @@ def optimize_glb(input_path: str, output_path: str) -> str:
     print(f"[AI-LOG] Using Tripo-native optimized mesh: {input_path}")
     import shutil
     try:
-        # Just copy the file to the output path without altering the GLB binary
+        
         shutil.copy2(input_path, output_path)
         return output_path
     except Exception as e:
@@ -307,8 +307,8 @@ def process_3d_generation(task_id: str, upload_path: str, fcm_token: str = None)
         tripo_task_id = tripo.create_task(image_token)
         
         glb_url = None
-        # Adaptive backoff: fast checks early (when Tripo is queuing/starting),
-        # slower later (when it's actively generating textures — no point hammering)
+        
+        
         for i in range(180):
             task_data = tripo.get_task_status(tripo_task_id)
             status = task_data.get("status")
@@ -323,8 +323,8 @@ def process_3d_generation(task_id: str, upload_path: str, fcm_token: str = None)
             elif status == "failed":
                 raise Exception(f"Tripo generation failed: {task_data.get('message', '')}")
             
-            # Adaptive sleep: check every 1s for first 10 iterations,
-            # every 2s for next 30, every 4s after that
+            
+            
             if i < 10:
                 time.sleep(1)
             elif i < 40:
@@ -339,7 +339,7 @@ def process_3d_generation(task_id: str, upload_path: str, fcm_token: str = None)
             
         TASKS[task_id].update({"progress": 85, "message": "Downloading model..."})
         final_path = f"static/generated/{task_id}_model.glb"
-        # Stream download — avoids buffering the full 20-40MB GLB into RAM before writing
+        
         with requests.get(glb_url, timeout=120, stream=True) as glb_response:
             glb_response.raise_for_status()
             with open(final_path, "wb") as f:
@@ -350,7 +350,7 @@ def process_3d_generation(task_id: str, upload_path: str, fcm_token: str = None)
         optimized_path = f"static/generated/{task_id}_model_opt.glb"
         final_served_path = optimize_glb(final_path, optimized_path)
         
-        # --- NEW: Upload to Cloudinary ---
+        
         TASKS[task_id].update({"progress": 98, "message": "Uploading to Cloud..."})
         try:
             print(f"[AI-LOG] Uploading {final_served_path} to Cloudinary...")
@@ -373,7 +373,7 @@ def process_3d_generation(task_id: str, upload_path: str, fcm_token: str = None)
             "message": "Complete!", "result": final_url
         })
         
-        # Fire push notification if FCM token was provided
+        
         if fcm_token:
             send_push_notification(fcm_token, task_id, final_url)
             
@@ -414,7 +414,7 @@ def send_push_notification(fcm_token: str, task_id: str, glb_url: str):
 async def generate_3d(
     background_tasks: BackgroundTasks,
     image: UploadFile = File(...),
-    fcm_token: Optional[str] = Form(None),  # optional — gracefully skips notification if absent
+    fcm_token: Optional[str] = Form(None),  
 ):
     print(f"\n[AI-LOG] Received request to generate 3D model: {image.filename} | FCM: {'yes' if fcm_token else 'no'}")
     task_id = str(uuid.uuid4())
@@ -424,7 +424,7 @@ async def generate_3d(
     
     TASKS[task_id] = {"status": "queued", "progress": 0, "message": "Queued..."}
     
-    # Run in executor so event loop stays free for /task-status polling
+    
     loop = asyncio.get_event_loop()
     loop.run_in_executor(_executor, process_3d_generation, task_id, upload_path, fcm_token)
     
@@ -452,7 +452,7 @@ async def scan_room(request: RoomScanRequest):
     if not gemini_key or gemini_key == "YOUR_GEMINI_API_KEY_HERE":
         print("[AI-LOG] Gemini API Key not set or default placeholder. Using robust rich simulated recommendation response for testing.")
         
-        # Build smart rich mock responses based on placed furniture styles and colors
+        
         placed_styles = [f.style for f in request.placed_furniture]
         primary_style = placed_styles[0] if placed_styles else "Modern"
         
@@ -465,7 +465,7 @@ async def scan_room(request: RoomScanRequest):
             if len(uniq_styles) > 1:
                 harmony_score = 65
         
-        # Dynamic advice based on user placement
+        
         layout_tips = [
             "Maintain at least 70cm of clearance around placed items to ensure smooth walking pathways.",
             "Since your room has natural lighting, avoid blocking window areas with tall placed items.",
@@ -532,15 +532,15 @@ async def scan_room(request: RoomScanRequest):
         return SCAN_CACHE[cache_key]
 
     try:
-        # Compress image before sending
+        
         image_data = compress_image_for_gemini(request.image_base64)
         
-        # Use async client
+        
         client = genai.Client(api_key=gemini_key)
         
         placed_str = json.dumps([f.dict() for f in request.placed_furniture])
         
-        # Shorter prompt — no redundant schema example
+        
         prompt = f"""
 You are an interior designer. Analyze this room image and the placed AR furniture below.
 Return a single JSON object with these exact fields:
@@ -597,7 +597,7 @@ Be concise. No explanations outside the JSON.
         parsed_data = json.loads(text_response.strip())
         result= RoomScanResult(**parsed_data)
         SCAN_CACHE[cache_key] = result  
-        return result                    # then return
+        return result                    
         
     except Exception as e:
         print(f"[AI-LOG] [ERROR] Gemini API failed: {str(e)}")
@@ -608,7 +608,7 @@ async def floor_plan_suggestions(request: FloorPlanRequest):
 
     gemini_key = os.getenv("GEMINI_API_KEY")
 
-    # ── Fallback if no Gemini key (mirrors your /scan-room pattern) ───────────
+    
     if not gemini_key or gemini_key == "YOUR_GEMINI_API_KEY_HERE":
         print("[AI-LOG] Gemini key not set — returning mock suggestions")
         return {
@@ -647,7 +647,7 @@ async def floor_plan_suggestions(request: FloorPlanRequest):
             ],
         }
 
-    # ── Build placed-elements summary for the prompt ──────────────────────────
+    
     placed_summary = "None yet."
     if request.placed_elements:
         lines = []
@@ -727,7 +727,7 @@ Maximum 5 items. Each object must have exactly these keys:
         raw = candidate.content.parts[0].text.strip()
         print(f"[AI-LOG] Floor plan raw response: {raw[:300]}")
 
-        # Strip accidental markdown fences
+        
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
@@ -736,7 +736,7 @@ Maximum 5 items. Each object must have exactly these keys:
 
         suggestions = json.loads(raw)
 
-        # Clamp every suggestion inside the room bounds
+        
         for s in suggestions:
             hw = s.get("width_meters", 0.5) / 2
             hd = s.get("depth_meters", 0.5) / 2

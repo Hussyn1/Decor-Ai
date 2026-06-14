@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 class SocialAuthButton extends StatelessWidget {
   final String text;
-  final String iconPath; // This could be an asset path or an icon for simplicity
+  final String iconPath; 
   final IconData? icon;
   final VoidCallback onPressed;
 
@@ -32,7 +32,7 @@ class SocialAuthButton extends StatelessWidget {
             if (icon != null)
               Icon(icon, size: 20, color: Colors.black87)
             else
-              const Icon(Icons.g_mobiledata, size: 24, color: Colors.black87), // Placeholder
+              const Icon(Icons.g_mobiledata, size: 24, color: Colors.black87), 
             const SizedBox(width: 8),
             Text(
               text,

@@ -137,7 +137,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   return;
                 }
 
-                // Create new project object
+                
                 final newProject = Project(
                   id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
                   name: _nameController.text,
@@ -147,7 +147,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   items: [],
                 );
 
-                // Navigate to AR View with this project
+                
                 Get.off(() => ArViewScreen(project: newProject));
               },
             ),

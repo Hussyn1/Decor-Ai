@@ -12,7 +12,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Reset any leftover state from a previous session
+    
     Get.put(HomePlannerController()).reset();
 
     return Scaffold(
@@ -33,7 +33,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hero icon + headline
+              
               Container(
                 width: 60,
                 height: 60,
@@ -63,7 +63,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              // Step cards
+              
               _StepCard(
                 number: '1',
                 numberBg: AppTheme.primaryBlue.withOpacity(0.1),
@@ -96,7 +96,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              // Tip banner
+              
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -131,7 +131,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
               const SizedBox(height: 32),
 
-              // Primary CTA
+              
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -158,7 +158,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // Skip to manual
+              
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -323,7 +323,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
   }
 }
 
-// ── Step card widget ─────────────────────────────────────────────────────────
+
 
 class _StepCard extends StatelessWidget {
   final String number;
@@ -405,7 +405,7 @@ class _StepCard extends StatelessWidget {
   }
 }
 
-// ── Dimension text field ─────────────────────────────────────────────────────
+
 
 class _DimField extends StatelessWidget {
   final TextEditingController controller;

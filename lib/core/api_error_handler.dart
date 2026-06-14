@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-/// Represents a structured API error with a user-friendly message and error type.
+
 class AppError {
   final String title;
   final String message;
@@ -21,18 +21,18 @@ class AppError {
 }
 
 enum AppErrorType {
-  network,       // No internet, DNS failure, connection refused
-  timeout,       // Request took too long
-  server,        // 5xx errors
-  auth,          // 401 / 403
-  notFound,      // 404
-  validation,    // 400 / 422
-  parsing,       // JSON decode errors
-  unknown,       // Catch-all
+  network,       
+  timeout,       
+  server,        
+  auth,          
+  notFound,      
+  validation,    
+  parsing,       
+  unknown,       
 }
 
 class ApiErrorHandler {
-  /// Parses any exception or HTTP response into a user-friendly [AppError].
+  
   static AppError handleException(dynamic error) {
     if (error is SocketException) {
       return const AppError(
@@ -74,7 +74,7 @@ class ApiErrorHandler {
       );
     }
 
-    // Generic Exception / Error with a message
+    
     final errorMessage = error.toString();
 
     if (errorMessage.contains('SocketException') ||
@@ -113,7 +113,7 @@ class ApiErrorHandler {
     );
   }
 
-  /// Parses an HTTP status code (and optional response body) into a user-friendly [AppError].
+  
   static AppError handleStatusCode(int statusCode, [dynamic responseBody]) {
     String serverMessage = '';
     if (responseBody != null) {
@@ -123,7 +123,7 @@ class ApiErrorHandler {
           serverMessage = body['message'] ?? body['error'] ?? '';
         }
       } catch (_) {
-        // Could not parse body, use default message
+        
       }
     }
 
@@ -234,7 +234,7 @@ class ApiErrorHandler {
     }
   }
 
-  /// Returns the appropriate icon for an error type.
+  
   static IconData getErrorIcon(AppErrorType type) {
     switch (type) {
       case AppErrorType.network:
@@ -256,27 +256,27 @@ class ApiErrorHandler {
     }
   }
 
-  /// Returns the appropriate color for an error type.
+  
   static Color getErrorColor(AppErrorType type) {
     switch (type) {
       case AppErrorType.network:
       case AppErrorType.timeout:
-        return const Color(0xFFFF9800); // Orange
+        return const Color(0xFFFF9800); 
       case AppErrorType.server:
-        return const Color(0xFFF44336); // Red
+        return const Color(0xFFF44336); 
       case AppErrorType.auth:
-        return const Color(0xFFE91E63); // Pink
+        return const Color(0xFFE91E63); 
       case AppErrorType.notFound:
-        return const Color(0xFF9C27B0); // Purple
+        return const Color(0xFF9C27B0); 
       case AppErrorType.validation:
-        return const Color(0xFFFF5722); // Deep Orange
+        return const Color(0xFFFF5722); 
       case AppErrorType.parsing:
       case AppErrorType.unknown:
-        return const Color(0xFFF44336); // Red
+        return const Color(0xFFF44336); 
     }
   }
 
-  /// Shows a styled error snackbar using GetX.
+  
   static void showError(AppError error) {
     if (Get.isSnackbarOpen) {
       Get.closeCurrentSnackbar();
@@ -305,7 +305,7 @@ class ApiErrorHandler {
     );
   }
 
-  /// Shows a styled success snackbar using GetX.
+  
   static void showSuccess(String title, String message) {
     if (Get.isSnackbarOpen) {
       Get.closeCurrentSnackbar();

@@ -28,12 +28,12 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // The AI Generated Image (Bottom Layer)
+          
           Positioned.fill(
             child: _buildGeneratedImage(widget.generatedImageUrl),
           ),
 
-          // The Original Image (Top Layer, Clipped)
+          
           Positioned.fill(
             child: ClipRect(
               clipper: _BeforeAfterClipper(_sliderValue),
@@ -44,7 +44,7 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
             ),
           ),
 
-          // The Slider UI
+          
           Positioned.fill(
             child: GestureDetector(
               onHorizontalDragUpdate: (details) {
@@ -55,7 +55,7 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
               },
               child: Stack(
                 children: [
-                  // Divider Line
+                  
                   Positioned(
                     left: MediaQuery.of(context).size.width * _sliderValue - 1,
                     top: 0,
@@ -65,7 +65,7 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  // Drag Handle
+                  
                   Positioned(
                     left: MediaQuery.of(context).size.width * _sliderValue - 20,
                     top: MediaQuery.of(context).size.height / 2 - 20,
@@ -87,7 +87,7 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
             ),
           ),
 
-          // Top Header
+          
           Positioned(
             top: 60,
             left: 20,
@@ -117,7 +117,7 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
             ),
           ),
 
-          // Labels
+          
           Positioned(
             bottom: 60,
             left: 20,
@@ -139,9 +139,9 @@ class _ReimagineViewerScreenState extends State<ReimagineViewerScreen> {
     );
   }
 
-  /// Renders the AI-generated image from either a local file path or a URL.
+  
   Widget _buildGeneratedImage(String source) {
-    // HF API returns a local file path; Pollinations returns a URL
+    
     if (source.startsWith('/') ||
         source.startsWith('file://') ||
         source.contains('\\')) {

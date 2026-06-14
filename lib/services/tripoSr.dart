@@ -7,11 +7,11 @@ import 'package:path_provider/path_provider.dart';
 import '../core/api_config.dart';
 
 class FurnitureAiService {
-  // Python backend URL
+  
   static String get _baseUrl => ApiConfig.aiBaseUrl;
 
-  /// Starts the 3D generation process and returns a taskId.
-  /// Pass [fcmToken] so the backend can push a notification when done.
+  
+  
   static Future<String> start3DGeneration(
     File imageFile, {
     String quality = 'Medium',
@@ -24,7 +24,7 @@ class FurnitureAiService {
     request.fields['quality'] = quality;
     request.fields['resolution'] = resolution;
 
-    // Send FCM token so backend can notify this device when model is ready
+    
     if (fcmToken != null && fcmToken.isNotEmpty) {
       request.fields['fcm_token'] = fcmToken;
     }
@@ -69,7 +69,7 @@ class FurnitureAiService {
     }
   }
 
-  /// Polls the status of a specific task
+  
   static Future<Map<String, dynamic>> getGenerationStatus(String taskId) async {
     final uri = Uri.parse('$_baseUrl/task-status/$taskId');
     
@@ -77,7 +77,7 @@ class FurnitureAiService {
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Prepend base URL to result if it exists and is relative
+        
         if (data['result'] != null && !(data['result'] as String).startsWith('http')) {
           data['result'] = '$_baseUrl${data['result']}';
         }
@@ -86,23 +86,23 @@ class FurnitureAiService {
         throw Exception('Task not found (${response.statusCode})');
       }
     } on TimeoutException {
-      // Don't crash the poll loop on a single timeout - just return processing
+      
       return {'status': 'processing', 'progress': 0, 'message': 'Checking...'};
     } on SocketException {
-      // Handle network flicker gracefully
+      
       return {'status': 'processing', 'progress': 0, 'message': 'Reconnecting...'};
     } catch (e) {
        throw Exception('Error checking status: $e');
     }
   }
 
-  /// Downloads a GLB file to the temporary cache for instant AR loading
+  
   static Future<String> downloadToCache(String url) async {
     try {
       final response = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 60));
       if (response.statusCode == 200) {
         final appDir = await getApplicationDocumentsDirectory();
-        // Strip query params from URL before using as filename
+        
         final rawName = url.split('/').last.split('?').first;
         final fileName = rawName.isEmpty ? 'model_${DateTime.now().millisecondsSinceEpoch}.glb' : rawName;
         
@@ -110,7 +110,7 @@ class FurnitureAiService {
         await file.writeAsBytes(response.bodyBytes);
         
         print('[CACHE] Saved ${response.bodyBytes.length ~/ 1024}KB as $fileName');
-        return fileName; // ✅ ONLY the filename — never the full path
+        return fileName; 
       }
       return url;
     } catch (e) {

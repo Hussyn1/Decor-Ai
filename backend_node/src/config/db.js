@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI, {
-            // New Mongoose 6+ defaults, no need for deprecated options
+            
         });
 
         console.log(`MongoDB Connected: ${conn.connection.host}`);
