@@ -81,50 +81,7 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
               ),
             ),
 
-            const SizedBox(height: 32),
-            _buildSectionTitle('AI Assistant (Optional)'),
             const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryBlue.withOpacity(0.05),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: AppTheme.primaryBlue.withOpacity(0.2),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.auto_awesome, color: AppTheme.primaryBlue),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Enable AI Style Advice',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          'Get personalized color and furniture tips',
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Switch(
-                    value: true,
-                    onChanged: (val) {},
-                    activeColor: AppTheme.primaryBlue,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 48),
             PrimaryButton(
               text: 'Initialize Project',
               onPressed: () {
@@ -137,7 +94,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   return;
                 }
 
-                
                 final newProject = Project(
                   id: 'temp_${DateTime.now().millisecondsSinceEpoch}',
                   name: _nameController.text,
@@ -147,7 +103,6 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
                   items: [],
                 );
 
-                
                 Get.off(() => ArViewScreen(project: newProject));
               },
             ),
@@ -177,7 +132,9 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.primaryBlue : Theme.of(context).cardColor,
+          color: isSelected
+              ? AppTheme.primaryBlue
+              : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: isSelected ? AppTheme.primaryBlue : Colors.grey.shade200,
@@ -213,10 +170,14 @@ class _CreateProjectScreenState extends State<CreateProjectScreen> {
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: isSelected ? Theme.of(context).colorScheme.primary : Theme.of(context).cardColor,
+          color: isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.shade300,
+            color: isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.grey.shade300,
           ),
         ),
         child: Center(

@@ -8,6 +8,7 @@ import 'package:get/get.dart';
 import '../services/firestore_project_service.dart';
 import 'ar_view_screen.dart';
 import 'three_floor_plan_screen.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class ProjectsScreen extends StatefulWidget {
   const ProjectsScreen({super.key});
@@ -17,8 +18,6 @@ class ProjectsScreen extends StatefulWidget {
 }
 
 class _ProjectsScreenState extends State<ProjectsScreen> {
-  
-  
   final ProjectController _projectController = Get.find<ProjectController>();
   String _selectedCategory = 'All';
 
@@ -68,7 +67,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                 );
               }
 
-              
               var displayProjects = _projectController.projects;
               if (_selectedCategory != 'All') {
                 displayProjects = _projectController.projects
@@ -97,11 +95,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             transition: Transition.fadeIn,
             duration: const Duration(milliseconds: 500),
           );
-          
-          
-          
-          
-          
+
           _projectController.fetchProjects();
         },
         backgroundColor: AppTheme.primaryBlue,
@@ -124,7 +118,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? AppTheme.primaryBlue : Theme.of(context).cardColor,
+                color: isSelected
+                    ? AppTheme.primaryBlue
+                    : Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected
@@ -147,7 +143,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 
   Widget _buildProjectCard(Project project) {
-    
     bool isRecent =
         DateTime.now().difference(project.lastModified).inHours < 24;
     String status = isRecent ? 'IN PROGRESS' : 'SAVED';
@@ -190,7 +185,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                       Get.to(() => ThreeFloorPlanScreen(project: project));
                     },
                     icon: const Icon(Icons.edit_note),
-                    label: const Text('Open in 3D Editor', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Open in 3D Editor',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
@@ -206,7 +204,10 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                       Get.back();
                       Get.to(() => ArViewScreen(project: project));
                     },
-                    icon: const Icon(Icons.view_in_ar, color: Colors.cyanAccent),
+                    icon: const Icon(
+                      Icons.view_in_ar,
+                      color: Colors.cyanAccent,
+                    ),
                     label: const Text('Preview in AR'),
                   ),
                 ],
@@ -216,7 +217,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
         } else {
           await Get.to(() => ArViewScreen(project: project));
         }
-        _projectController.fetchProjects(); 
+        _projectController.fetchProjects();
       },
       onLongPress: () {
         showDialog(
@@ -266,12 +267,35 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               tag: 'project_ar_${project.id}',
               child: Container(
                 height: 150,
-                color: Theme.of(context).brightness == Brightness.dark 
-                    ? Colors.grey.shade800 
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.grey.shade800
                     : Colors.grey.shade100,
-                child: const Center(
-                  child: Icon(Icons.view_in_ar, size: 48, color: Colors.black12),
-                ),
+                child:
+                    project.thumbnailPath != null &&
+                        project.thumbnailPath!.isNotEmpty
+                    ? CachedNetworkImage(
+                        imageUrl: project.thumbnailPath!,
+                        width: double.infinity,
+                        height: 150,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (context, url, error) => const Center(
+                          child: Icon(
+                            Icons.view_in_ar,
+                            size: 48,
+                            color: Colors.black12,
+                          ),
+                        ),
+                      )
+                    : const Center(
+                        child: Icon(
+                          Icons.view_in_ar,
+                          size: 48,
+                          color: Colors.black12,
+                        ),
+                      ),
               ),
             ),
             Padding(

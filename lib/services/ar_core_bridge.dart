@@ -3,40 +3,40 @@ import 'package:flutter/services.dart';
 class ArCoreBridge {
   static const platform = MethodChannel('com.example.ar_app/ar_core');
 
-  Future<bool> isCloudAnchorSupported() async {
-    try {
-      final bool result = await platform.invokeMethod('isCloudAnchorSupported');
-      return result;
-    } on PlatformException catch (e) {
-      print("Failed to get support status: '${e.message}'.");
-      return false;
-    }
-  }
+  // Future<bool> isCloudAnchorSupported() async {
+  //   try {
+  //     final bool result = await platform.invokeMethod('isCloudAnchorSupported');
+  //     return result;
+  //   } on PlatformException catch (e) {
+  //     print("Failed to get support status: '${e.message}'.");
+  //     return false;
+  //   }
+  // }
 
   
-  Future<String?> hostCloudAnchor(String anchorId) async {
-    try {
-      final String? result = await platform.invokeMethod('hostCloudAnchor', {
-        'anchorId': anchorId,
-      });
-      return result;
-    } on PlatformException catch (e) {
-      print("Failed to host cloud anchor: '${e.message}'.");
-      return null;
-    }
-  }
+  // Future<String?> hostCloudAnchor(String anchorId) async {
+  //   try {
+  //     final String? result = await platform.invokeMethod('hostCloudAnchor', {
+  //       'anchorId': anchorId,
+  //     });
+  //     return result;
+  //   } on PlatformException catch (e) {
+  //     print("Failed to host cloud anchor: '${e.message}'.");
+  //     return null;
+  //   }
+  // }
 
-  Future<bool> resolveCloudAnchor(String cloudAnchorId) async {
-    try {
-      final bool result = await platform.invokeMethod('resolveCloudAnchor', {
-        'cloudAnchorId': cloudAnchorId,
-      });
-      return result;
-    } on PlatformException catch (e) {
-      print("Failed to resolve cloud anchor: '${e.message}'.");
-      return false;
-    }
-  }
+  // Future<bool> resolveCloudAnchor(String cloudAnchorId) async {
+  //   try {
+  //     final bool result = await platform.invokeMethod('resolveCloudAnchor', {
+  //       'cloudAnchorId': cloudAnchorId,
+  //     });
+  //     return result;
+  //   } on PlatformException catch (e) {
+  //     print("Failed to resolve cloud anchor: '${e.message}'.");
+  //     return false;
+  //   }
+  // }
 
   Future<void> enableOcclusion(bool enable) async {
     try {

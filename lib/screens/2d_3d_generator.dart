@@ -34,10 +34,9 @@ class ThreeDGeneratorScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            
             Obx(() {
-              if (controller.glbUrl.value.isNotEmpty && !controller.isGenerating.value) {
-                
+              if (controller.glbUrl.value.isNotEmpty &&
+                  !controller.isGenerating.value) {
                 return Container(
                   height: 350,
                   decoration: BoxDecoration(
@@ -48,7 +47,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                         color: Colors.black.withOpacity(0.1),
                         blurRadius: 10,
                         spreadRadius: 2,
-                      )
+                      ),
                     ],
                   ),
                   child: ClipRRect(
@@ -58,7 +57,7 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                         ModelViewer(
                           key: ValueKey(controller.glbUrl.value),
                           backgroundColor: const Color(0xFFEEEEEE),
-                          src: controller.glbUrl.value, 
+                          src: controller.glbUrl.value,
                           alt: "3D Furniture Model",
                           ar: false,
                           autoRotate: true,
@@ -71,24 +70,30 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                           top: 10,
                           left: 10,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.blue.withOpacity(0.8),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Text(
                               "3D PREVIEW",
-                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
-                        )
+                        ),
                       ],
                     ),
                   ),
                 );
               }
 
-              
               return controller.selectedImage.value == null
                   ? InkWell(
                       onTap: () => controller.pickImage(),
@@ -102,7 +107,11 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                         child: const Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.add_photo_alternate, size: 50, color: Colors.grey),
+                            Icon(
+                              Icons.add_photo_alternate,
+                              size: 50,
+                              color: Colors.grey,
+                            ),
                             SizedBox(height: 10),
                             Text('Select an image from gallery'),
                           ],
@@ -126,7 +135,10 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                           child: CircleAvatar(
                             backgroundColor: Colors.red,
                             child: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.white),
+                              icon: const Icon(
+                                Icons.delete,
+                                color: Colors.white,
+                              ),
                               onPressed: () => controller.reset(),
                             ),
                           ),
@@ -135,7 +147,6 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                     );
             }),
 
-            
             Obx(
               () => Column(
                 children: [
@@ -147,14 +158,19 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                           LinearProgressIndicator(
                             value: (controller.progress.value / 100).toDouble(),
                             backgroundColor: Colors.grey[200],
-                            valueColor: const AlwaysStoppedAnimation<Color>(Colors.blue),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Colors.blue,
+                            ),
                             minHeight: 8,
                             borderRadius: BorderRadius.circular(5),
                           ),
                           const SizedBox(height: 8),
                           Text(
                             "${controller.progress.value}% Complete",
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue,
+                            ),
                           ),
                           const SizedBox(height: 15),
                           Container(
@@ -162,7 +178,9 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: Colors.amber.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.amber.withValues(alpha: 0.3)),
+                              border: Border.all(
+                                color: Colors.amber.withValues(alpha: 0.3),
+                              ),
                             ),
                             child: const Row(
                               children: [
@@ -187,15 +205,17 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed:
                           controller.selectedImage.value == null ||
-                                  controller.isGenerating.value
-                              ? null
-                              : () => controller.generate3DModel(),
+                              controller.isGenerating.value
+                          ? null
+                          : () => controller.generate3DModel(),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 15),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        backgroundColor: controller.isGenerating.value ? Colors.grey : null,
+                        backgroundColor: controller.isGenerating.value
+                            ? Colors.grey
+                            : null,
                       ),
                       child: controller.isGenerating.value
                           ? const Text('Generating Model...')
@@ -211,7 +231,6 @@ class ThreeDGeneratorScreen extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            
             Obx(
               () => controller.statusMessage.value.isNotEmpty
                   ? Column(
@@ -231,7 +250,8 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                             ),
                           ),
                         ),
-                        if (controller.glbUrl.value.isNotEmpty && !controller.isGenerating.value) 
+                        if (controller.glbUrl.value.isNotEmpty &&
+                            !controller.isGenerating.value)
                           Padding(
                             padding: const EdgeInsets.only(top: 25),
                             child: SizedBox(
@@ -243,20 +263,31 @@ class ThreeDGeneratorScreen extends StatelessWidget {
                                     context,
                                     MaterialPageRoute(
                                       builder: (_) => ArViewScreen(
-                                        
-                                        initialModelUrl: controller.localGlbPath.value.isNotEmpty 
-                                          ? controller.localGlbPath.value 
-                                          : controller.glbUrl.value,
+                                        initialModelUrl:
+                                            controller
+                                                .localGlbPath
+                                                .value
+                                                .isNotEmpty
+                                            ? controller.localGlbPath.value
+                                            : controller.glbUrl.value,
                                       ),
                                     ),
                                   );
                                 },
                                 icon: const Icon(Icons.view_in_ar, size: 28),
-                                label: const Text('Place in Room', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                label: const Text(
+                                  'Place in Room',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.green,
                                   foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
                                   elevation: 5,
                                 ),
                               ),

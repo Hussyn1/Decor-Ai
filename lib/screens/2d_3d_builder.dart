@@ -24,23 +24,24 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
     super.initState();
     _progressController = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 8), 
+      duration: const Duration(seconds: 8),
     );
 
-    
     ever(controller.isGenerating, (bool isGenerating) {
-      if (isGenerating) {
-        _progressController.forward(from: 0.0);
-      } else {
-        if (controller.glbUrl.value.isNotEmpty) {
-          _progressController.animateTo(
-            1.0,
-            duration: const Duration(milliseconds: 500),
-          );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (isGenerating) {
+          _progressController.forward(from: 0.0);
         } else {
-          _progressController.reset();
+          if (controller.glbUrl.value.isNotEmpty) {
+            _progressController.animateTo(
+              1.0,
+              duration: const Duration(milliseconds: 500),
+            );
+          } else {
+            _progressController.reset();
+          }
         }
-      }
+      });
     });
   }
 
@@ -177,7 +178,6 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
         final isGenerating = controller.isGenerating.value;
         final hasModel = controller.glbUrl.value.isNotEmpty;
 
-        
         if (hasModel && !isGenerating) {
           if (_isNavigatingContext) {
             return const Center(
@@ -196,21 +196,19 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
           }
           return Stack(
             children: [
-              
               ModelViewer(
-                src: controller.localGlbPath.value.isNotEmpty 
-                     ? 'file://${controller.localGlbPath.value}' 
-                     : controller.glbUrl.value,
+                src: controller.localGlbPath.value.isNotEmpty
+                    ? 'file://${controller.localGlbPath.value}'
+                    : controller.glbUrl.value,
                 alt: '3D furniture model',
                 ar: false,
                 autoRotate: true,
                 cameraControls: true,
-                backgroundColor: const Color(0xFFEEEEEE), 
+                backgroundColor: const Color(0xFFEEEEEE),
                 shadowIntensity: 1.0,
                 autoRotateDelay: 0,
               ),
 
-              
               Positioned(
                 top: 20,
                 left: 20,
@@ -234,7 +232,6 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                 ),
               ),
 
-              
               Positioned(
                 top: 20,
                 right: 20,
@@ -266,7 +263,6 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
           );
         }
 
-        
         return Stack(
           children: [
             const RepaintBoundary(
@@ -304,7 +300,6 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                       ),
                       child: Stack(
                         children: [
-                          
                           if (isGenerating)
                             Align(
                               alignment: Alignment.bottomCenter,
@@ -519,7 +514,6 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
             () => controller.glbUrl.value.isNotEmpty
                 ? Column(
                     children: [
-                      
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
@@ -530,13 +524,18 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                               context,
                               MaterialPageRoute(
                                 builder: (_) => ModelViewerScreen(
-                                  glbUrl: glbUrl.startsWith('/') || glbUrl.contains('Application Documents')
+                                  glbUrl:
+                                      glbUrl.startsWith('/') ||
+                                          glbUrl.contains(
+                                            'Application Documents',
+                                          )
                                       ? 'file://$glbUrl'
                                       : glbUrl,
                                 ),
                               ),
                             );
-                            if (mounted) setState(() => _isNavigatingContext = false);
+                            if (mounted)
+                              setState(() => _isNavigatingContext = false);
                           },
                           icon: const Icon(Icons.fullscreen),
                           label: const Text('View full 3D model'),
@@ -550,7 +549,7 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                         ),
                       ),
                       const SizedBox(height: 12),
-                      
+
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton.icon(
@@ -565,7 +564,8 @@ class _TwoDToThreeDBuilderState extends State<TwoDToThreeDBuilder>
                                   ),
                                 ),
                               );
-                              if (mounted) setState(() => _isNavigatingContext = false);
+                              if (mounted)
+                                setState(() => _isNavigatingContext = false);
                             }
                           },
                           icon: const Icon(

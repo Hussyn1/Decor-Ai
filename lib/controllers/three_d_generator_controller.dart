@@ -16,7 +16,7 @@ class ThreeDGeneratorController extends GetxController {
   var statusMessage = "".obs;
   var progress = 0.obs;
   var selectedImage = Rx<File?>(null);
-  
+
   final ImagePicker _picker = ImagePicker();
 
   void pickImage() async {
@@ -38,12 +38,14 @@ class ThreeDGeneratorController extends GetxController {
     localGlbPath.value = "";
     progress.value = 0;
     statusMessage.value = "Uploading to server...";
+    await Future.delayed(Duration.zero);
 
     try {
       final settingsController = Get.find<SettingsController>();
-      print('[CONTROLLER-LOG] Starting 3D generation process with Quality: ${settingsController.generationQuality.value}, Res: ${settingsController.textureResolution.value}');
-      
-      
+      print(
+        '[CONTROLLER-LOG] Starting 3D generation process with Quality: ${settingsController.generationQuality.value}, Res: ${settingsController.textureResolution.value}',
+      );
+
       String? fcmToken;
       try {
         fcmToken = await FcmService().getToken();
@@ -59,15 +61,14 @@ class ThreeDGeneratorController extends GetxController {
         fcmToken: fcmToken,
       );
       print('[CONTROLLER-LOG] Task started successfully. TaskID: $taskId');
-      
-      
+
       bool completed = false;
       int retryCount = 0;
-      
+
       while (!completed && retryCount < 200) {
         await Future.delayed(const Duration(seconds: 2));
         final statusData = await FurnitureAiService.getGenerationStatus(taskId);
-        
+
         String status = statusData['status'];
         progress.value = statusData['progress'] ?? 0;
         statusMessage.value = statusData['message'] ?? "Processing...";
@@ -75,48 +76,50 @@ class ThreeDGeneratorController extends GetxController {
         if (status == 'success') {
           completed = true;
           glbUrl.value = statusData['result'];
+          glbUrl.refresh();
           statusMessage.value = "Generation Complete! Finalizing...";
-          
-          
+
           statusMessage.value = "Preparing for AR...";
-          final cachedFilename = await FurnitureAiService.downloadToCache(glbUrl.value);
-          
+          final cachedFilename = await FurnitureAiService.downloadToCache(
+            glbUrl.value,
+          );
+
           final appDir = await getApplicationDocumentsDirectory();
-          
-          
-          
+
           if (cachedFilename.startsWith('http')) {
-              localGlbPath.value = cachedFilename;
+            localGlbPath.value = cachedFilename;
           } else {
-              localGlbPath.value = '${appDir.path}/$cachedFilename';
+            localGlbPath.value = '${appDir.path}/$cachedFilename';
           }
-          
+
           statusMessage.value = "Model ready!";
-          
-          
+
           try {
             final catalogController = Get.find<CatalogController>();
             await catalogController.addGeneratedModel(
-              name: "AI Furniture #${catalogController.furnitureItems.length + 1}",
+              name:
+                  "AI Furniture #${catalogController.furnitureItems.length + 1}",
               glbUrl: glbUrl.value,
               localPath: localGlbPath.value,
-              imageUrl: selectedImage.value!.path, 
+              imageUrl: selectedImage.value!.path,
             );
             print('[CONTROLLER-LOG] Successfully added to persistent catalog');
           } catch (e) {
             print('[CONTROLLER-LOG] Could not add to catalog: $e');
           }
-          
-          ApiErrorHandler.showSuccess("Success", "Model generated successfully.");
+
+          ApiErrorHandler.showSuccess(
+            "Success",
+            "Model generated successfully.",
+          );
         } else if (status == 'failed') {
           throw Exception(statusData['message'] ?? 'Generation failed');
         }
-        
+
         retryCount++;
       }
-      
-      if (!completed) throw Exception('Generation timed out');
 
+      if (!completed) throw Exception('Generation timed out');
     } catch (e) {
       statusMessage.value = "Error: $e";
       ApiErrorHandler.showError(ApiErrorHandler.handleException(e));

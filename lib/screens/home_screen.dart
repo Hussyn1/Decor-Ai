@@ -1,3 +1,5 @@
+import 'package:decor_ar_fyp/controllers/notification_controller.dart';
+import 'package:decor_ar_fyp/screens/notification_screen.dart';
 import 'package:decor_ar_fyp/screens/three_floor_plan_screen.dart';
 import 'package:decor_ar_fyp/screens/home_planner/home_planner_entry_screen.dart';
 import 'package:flutter/material.dart';
@@ -30,7 +32,7 @@ class HomeScreen extends StatelessWidget {
     final List<Widget> screens = [
       const HomeDashboard(),
       const ProjectsScreen(),
-      const SizedBox.shrink(), 
+      const SizedBox.shrink(),
       DiscoverScreen(),
       const SettingsScreen(),
     ];
@@ -62,7 +64,7 @@ class HomeScreen extends StatelessWidget {
             children: [
               _buildNavItem(controller, 0, 'Home', Icons.home_filled),
               _buildNavItem(controller, 1, 'Projects', Icons.grid_view_rounded),
-              const SizedBox(width: 60), 
+              const SizedBox(width: 60),
               _buildNavItem(controller, 3, 'Discover', Icons.explore),
               _buildNavItem(controller, 4, 'Settings', Icons.settings),
             ],
@@ -137,7 +139,6 @@ class HomeDashboard extends StatefulWidget {
 class _HomeDashboardState extends State<HomeDashboard> {
   final ProjectController _projectController = Get.put(ProjectController());
 
-  
   String _formatRelativeTime(DateTime dt) {
     final diff = DateTime.now().difference(dt);
     if (diff.inMinutes < 1) return 'Just now';
@@ -163,7 +164,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
             _buildRecentProjectsHeader(),
             const SizedBox(height: 16),
             _buildRecentProjectsList(),
-            const SizedBox(height: 100), 
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -222,26 +223,63 @@ class _HomeDashboardState extends State<HomeDashboard> {
         ),
         const Spacer(),
         RepaintBoundary(
-          child: Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: const Icon(Icons.notifications_none_outlined, size: 24),
-          ),
+          child: Obx(() {
+            final notifController = Get.find<NotificationController>();
+            final unread = notifController.unreadCount;
+            return GestureDetector(
+              onTap: () => Get.to(() => const NotificationsScreen()),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.notifications_none_outlined,
+                      size: 24,
+                    ),
+                  ),
+                  if (unread > 0)
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: Container(
+                        width: 18,
+                        height: 18,
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            unread > 9 ? '9+' : '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }),
         ),
       ],
     );
   }
-
   Widget _buildQuickTools() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,21 +320,19 @@ class _HomeDashboardState extends State<HomeDashboard> {
                 ),
               ),
             ),
-            
           ],
         ),
-        Expanded(
-  child: GestureDetector(
-    onTap: () => Get.to(() => const HomePlannerEntryScreen()),
-    child: _buildToolCard(
-      'Home Planner',
-      'Scan room · Build plan · AR',
-      FontAwesomeIcons.drawPolygon,
-      const Color(0xFFE8F5E9),
-      Colors.green,
-    ),
-  ),
-),
+        const SizedBox(height: 16), // add spacing
+        GestureDetector(
+          onTap: () => Get.to(() => const HomePlannerEntryScreen()),
+          child: _buildToolCard(
+            'Home Planner',
+            'Scan room · Build plan · AR',
+            FontAwesomeIcons.drawPolygon,
+            const Color(0xFFE8F5E9),
+            Colors.green,
+          ),
+        ),
       ],
     );
   }
@@ -351,7 +387,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
         Text('Recent Projects', style: Theme.of(context).textTheme.titleMedium),
         TextButton(
           onPressed: () {
-            
             final homeController = Get.find<HomeController>();
             homeController.changeTabIndex(1);
           },
@@ -364,7 +399,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
   Widget _buildRecentProjectsList() {
     return Obx(() {
       if (_projectController.isLoading.value) {
-        
         return Column(
           children: List.generate(
             3,
@@ -390,7 +424,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
       }
 
       if (_projectController.projects.isEmpty) {
-        
         return Container(
           padding: const EdgeInsets.symmetric(vertical: 40),
           child: Center(
@@ -417,7 +450,6 @@ class _HomeDashboardState extends State<HomeDashboard> {
         );
       }
 
-      
       final recentProjects = _projectController.projects.take(3).toList();
       return Column(
         children: recentProjects.map((project) {
