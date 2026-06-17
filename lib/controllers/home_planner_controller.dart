@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:math' as math;
 import '../models/room_dimensions.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 
@@ -39,8 +40,8 @@ class HomePlannerController extends GetxController {
     
     final xs = cornerPoints.map((p) => p.x).toList()..sort();
     final zs = cornerPoints.map((p) => p.z).toList()..sort();
-    final width = double.parse((xs.last - xs.first).toStringAsFixed(2));
-    final depth = double.parse((zs.last - zs.first).toStringAsFixed(2));
+    final width = _sanitizeDimension(xs.last - xs.first);
+    final depth = _sanitizeDimension(zs.last - zs.first);
 
     roomDimensions.value = RoomDimensions(
       projectId: 'current',
@@ -51,12 +52,43 @@ class HomePlannerController extends GetxController {
     );
   }
 
+  double _sanitizeDimension(double value) {
+    if (!value.isFinite) return 0.0;
+    final normalized = value.abs();
+    if (normalized < 0.2) return 0.0;
+    return double.parse(normalized.toStringAsFixed(2));
+  }
+
+  bool get hasUsableScannedDimensions {
+    final rd = roomDimensions.value;
+    return rd != null &&
+        rd.widthMeters.isFinite &&
+        rd.depthMeters.isFinite &&
+        rd.widthMeters >= 0.2 &&
+        rd.depthMeters >= 0.2;
+  }
+
+  double get scannedFloorArea {
+    if (cornerPoints.length < 3) return 0.0;
+    double area = 0.0;
+    for (int i = 0; i < cornerPoints.length; i++) {
+      final a = cornerPoints[i];
+      final b = cornerPoints[(i + 1) % cornerPoints.length];
+      area += (a.x * b.z) - (b.x * a.z);
+    }
+    return math.max(0.0, area.abs() / 2.0);
+  }
+
   
 
   void setManualDimensions(double w, double d, {double h = 2.4}) {
+    final safeWidth = _sanitizeDimension(w);
+    final safeDepth = _sanitizeDimension(d);
     roomDimensions.value = RoomDimensions(
       projectId: roomDimensions.value?.projectId ?? 'current',
-      widthMeters: w, depthMeters: d, heightMeters: h,
+      widthMeters: safeWidth > 0 ? safeWidth : 4.0,
+      depthMeters: safeDepth > 0 ? safeDepth : 3.5,
+      heightMeters: h > 0 ? h : 2.4,
       wallSegments: roomDimensions.value?.wallSegments ?? [],
       elements: roomDimensions.value?.elements ?? [],
     );

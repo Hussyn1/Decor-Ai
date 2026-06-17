@@ -64,8 +64,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              AppTheme.primaryBlue,
-              AppTheme.primaryBlue.withOpacity(0.8),
+              const Color(0xFF2196F3),
+              const Color(0xFF2196F3).withOpacity(0.8),
               const Color(0xFF0D47A1),
             ],
           ),
@@ -113,7 +113,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             child: const Icon(
                               Icons.horizontal_distribute_rounded, 
                               size: 80,
-                              color: AppTheme.primaryBlue,
+                              color: Color(0xFF2196F3),
                             ),
                           ),
                           const SizedBox(height: 24),

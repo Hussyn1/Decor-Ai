@@ -18,13 +18,6 @@ import '../../controllers/catalog_controller.dart';
 import '../../models/room_dimensions.dart';
 import '../../core/app_theme.dart';
 
-
-
-
-
-
-
-
 class ArPreviewFromPlanScreen extends StatefulWidget {
   const ArPreviewFromPlanScreen({super.key});
 
@@ -39,15 +32,15 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
   ARAnchorManager? _anchors;
 
   final HomePlannerController _planner = Get.find<HomePlannerController>();
-  final CatalogController _catalog = Get.find<CatalogController>();
-
-  bool _grounded = false; 
-  bool _spawning = false; 
+final _catalog = Get.isRegistered<CatalogController>()
+    ? Get.find<CatalogController>()
+    : Get.put(CatalogController());
+  bool _grounded = false;
+  bool _spawning = false;
   int _spawnedCount = 0;
   int _totalToSpawn = 0;
   String _statusMsg = 'Tap your floor to place the room';
 
-  
   final List<ARNode> _spawnedNodes = [];
   final List<ARAnchor> _spawnedAnchors = [];
 
@@ -63,20 +56,17 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          
           ARView(
             onARViewCreated: _onARViewCreated,
             planeDetectionConfig: PlaneDetectionConfig.horizontal,
           ),
 
-          
           Positioned(
             top: 52,
             left: 16,
             right: 16,
             child: Row(
               children: [
-                
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Container(
@@ -94,7 +84,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                
+
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -121,7 +111,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
                   ),
                 ),
                 const Spacer(),
-                
+
                 if (_grounded)
                   GestureDetector(
                     onTap: _resetScene,
@@ -142,7 +132,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
             ),
           ),
 
-          
           Positioned(
             bottom: 80,
             left: 24,
@@ -153,7 +142,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
             ),
           ),
 
-          
           if (_grounded && !_spawning)
             Positioned(top: 120, right: 16, child: _buildLegend()),
         ],
@@ -252,8 +240,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     ],
   );
 
-  
-
   void _onARViewCreated(
     ARSessionManager session,
     ARObjectManager objects,
@@ -275,8 +261,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     );
     objects.onInitialize();
   }
-
-  
 
   Future<void> _onTap(List<ARHitTestResult> hits) async {
     if (_grounded || _spawning) return;
@@ -302,49 +286,38 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     });
   }
 
-  
-
   Future<void> _spawnRoom(vector.Vector3 tapPos) async {
     final rd = _planner.roomDimensions.value;
     if (rd == null || _objects == null || _anchors == null) return;
 
-    
     final furnitureEls = rd.elements
         .where((e) => e.type == FloorPlanElementType.furniture)
         .toList();
 
-    
     _totalToSpawn = 4 + furnitureEls.length;
     _spawnedCount = 0;
 
     final W = rd.widthMeters;
     final D = rd.depthMeters;
     final wallH = rd.heightMeters ?? 2.4;
-    const wallT = 0.05; 
+    const wallT = 0.05;
 
-    
-    
-    
-    
-    
     const cubeUri =
         'https://github.com/KhronosGroup/glTF-Sample-Models/raw/main/2.0/Box/glTF-Binary/Box.glb';
 
-    
     final walls = [
-      
       _WallDef(
         pos: vector.Vector3(tapPos.x, tapPos.y + wallH / 2, tapPos.z),
         scale: vector.Vector3(W, wallH, wallT),
         label: 'North',
       ),
-      
+
       _WallDef(
         pos: vector.Vector3(tapPos.x, tapPos.y + wallH / 2, tapPos.z + D),
         scale: vector.Vector3(W, wallH, wallT),
         label: 'South',
       ),
-      
+
       _WallDef(
         pos: vector.Vector3(
           tapPos.x - W / 2,
@@ -354,7 +327,7 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
         scale: vector.Vector3(wallT, wallH, D),
         label: 'West',
       ),
-      
+
       _WallDef(
         pos: vector.Vector3(
           tapPos.x + W / 2,
@@ -380,7 +353,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
       await Future.delayed(const Duration(milliseconds: 200));
     }
 
-    
     for (final el in furnitureEls) {
       final catalogMatch = _catalog.furnitureItems.firstWhereOrNull((item) {
         final dims = item['dims'] as List?;
@@ -396,8 +368,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
           ? uri
           : (uri.contains('/') ? uri.split('/').last : uri);
 
-      
-      
       final worldX = tapPos.x + (el.xMeters - W / 2);
       final worldZ = tapPos.z + (el.zMeters - D / 2);
       final worldPos = vector.Vector3(worldX, tapPos.y, worldZ);
@@ -437,13 +407,11 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     if (_objects == null || _anchors == null) return;
 
     try {
-      
       final anchorMatrix = vector.Matrix4.identity()..setTranslation(anchorAt);
       final anchor = ARPlaneAnchor(transformation: anchorMatrix);
       if (await _anchors!.addAnchor(anchor) != true) return;
       _spawnedAnchors.add(anchor);
 
-      
       final relPos = position - anchorAt;
 
       final node = ARNode(
@@ -475,8 +443,6 @@ class _ArPreviewFromPlanScreenState extends State<ArPreviewFromPlanScreen> {
     });
   }
 }
-
-
 
 class _WallDef {
   final vector.Vector3 pos;

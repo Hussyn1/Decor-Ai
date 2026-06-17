@@ -19,6 +19,7 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final AuthController _authController = Get.find<AuthController>();
   final ImagePicker _picker = ImagePicker();
+  File? _selectedImage;
 
   late TextEditingController _nameController;
   late TextEditingController _emailController;
@@ -45,7 +46,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
-        _authController.uploadProfilePicture(File(image.path));
+        setState(() {
+          _selectedImage = File(image.path);
+        });
       }
     } catch (e) {
       Get.snackbar(
@@ -89,7 +92,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       shape: BoxShape.circle,
                       color: Colors.grey.shade300,
                     ),
-                    child: hasImage
+                    child: _selectedImage != null
+                        ? ClipOval(
+                            child: Image.file(
+                              _selectedImage!,
+                              fit: BoxFit.cover,
+                              width: 120,
+                              height: 120,
+                            ),
+                          )
+                        : hasImage
                         ? ClipOval(
                             child: CachedNetworkImage(
                               imageUrl: profilePic,
@@ -154,21 +166,45 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               controller: _bioController,
             ),
             const SizedBox(height: 48),
-            Obx(() => _authController.isLoading.value
-                ? const Center(child: CircularProgressIndicator())
-                : PrimaryButton(
-                    text: 'Save Changes',
-                    onPressed: () async {
-                      final success = await _authController.updateProfile(
-                        _nameController.text,
-                        _emailController.text,
-                        _bioController.text,
-                      );
-                      if (success) {
-                        Get.back();
-                      }
-                    },
-                  )),
+            Obx(
+              () => _authController.isLoading.value
+                  ? const Center(child: CircularProgressIndicator())
+                  : PrimaryButton(
+                      text: 'Save Changes',
+                      onPressed: () async {
+                        final user = _authController.currentUser.value;
+
+                        // 1. Extract values or default to empty strings to avoid null issues
+                        final currentName = user?['username'] ?? '';
+                        final currentEmail = user?['email'] ?? '';
+                        final currentBio = user?['bio'] ?? '';
+
+                        bool hasTextChanged =
+                            _nameController.text != currentName ||
+                            _emailController.text != currentEmail ||
+                            _bioController.text != currentBio;
+
+                        bool hasImageChanged = _selectedImage != null;
+
+                        if (!hasTextChanged && !hasImageChanged) {
+                          Get.snackbar(
+                            "No Changes",
+                            "You haven't modified any profile details.",
+                            backgroundColor: Colors.amber.shade700,
+                            colorText: Colors.white,
+                          );
+                          return; 
+                        }
+
+                        final success = await _authController.updateProfile(
+                          _nameController.text,
+                          _emailController.text,
+                          _bioController.text,
+                          imageFile: _selectedImage,
+                        );
+                      },
+                    ),
+            ),
           ],
         ),
       ),

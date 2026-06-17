@@ -12,9 +12,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    
-    Get.put(HomePlannerController()).reset();
-
+    Get.put(HomePlannerController(), permanent: false);
     return Scaffold(
       backgroundColor: AppTheme.backgroundLight,
       appBar: AppBar(
@@ -33,7 +31,6 @@ class HomePlannerEntryScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              
               Container(
                 width: 60,
                 height: 60,
@@ -63,7 +60,6 @@ class HomePlannerEntryScreen extends StatelessWidget {
               ),
               const SizedBox(height: 32),
 
-              
               _StepCard(
                 number: '1',
                 numberBg: AppTheme.primaryBlue.withOpacity(0.1),
@@ -96,7 +92,6 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
               const SizedBox(height: 28),
 
-              
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -131,7 +126,6 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
               const SizedBox(height: 32),
 
-              
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -158,7 +152,6 @@ class HomePlannerEntryScreen extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              
               SizedBox(
                 width: double.infinity,
                 height: 48,
@@ -267,7 +260,7 @@ class HomePlannerEntryScreen extends StatelessWidget {
                         h: double.tryParse(hCtrl.text) ?? 2.4,
                       );
                       Navigator.pop(context);
-                      Get.to(() => const FloorPlanEditorScreen());
+                      Get.to(() => const ThreeFloorPlanScreen());
                     },
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppTheme.primaryBlue,
@@ -287,13 +280,17 @@ class HomePlannerEntryScreen extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () {
-                      final plannerCtrl = Get.put(RoomPlannerController());
+                      final plannerCtrl = Get.isRegistered<RoomPlannerController>()
+                          ? Get.find<RoomPlannerController>()
+                          : Get.put(RoomPlannerController());
                       final w = double.tryParse(wCtrl.text) ?? 4.0;
                       final l = double.tryParse(dCtrl.text) ?? 3.5;
                       final h = double.tryParse(hCtrl.text) ?? 2.4;
-                      plannerCtrl.roomWidth.value = w;
-                      plannerCtrl.roomLength.value = l;
-                      plannerCtrl.roomHeight.value = h;
+                      plannerCtrl.setDimensionsFromScan(
+                        width: w,
+                        length: l,
+                        height: h,
+                      );
 
                       Navigator.pop(context);
                       Get.to(() => const ThreeFloorPlanScreen());
@@ -322,8 +319,6 @@ class HomePlannerEntryScreen extends StatelessWidget {
     );
   }
 }
-
-
 
 class _StepCard extends StatelessWidget {
   final String number;
@@ -404,8 +399,6 @@ class _StepCard extends StatelessWidget {
     );
   }
 }
-
-
 
 class _DimField extends StatelessWidget {
   final TextEditingController controller;

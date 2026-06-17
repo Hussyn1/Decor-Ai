@@ -226,7 +226,7 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<bool> updateProfile(String username, String email, String bio) async {
+  Future<bool> updateProfile(String username, String email, String bio, {File? imageFile}) async {
     if (username.trim().isEmpty || email.trim().isEmpty) {
       ApiErrorHandler.showError(const AppError(
         title: 'Validation Error',
@@ -251,6 +251,13 @@ class AuthController extends GetxController {
         return false;
       }
 
+      // 1. If an image file was selected in the UI, upload it first
+      if (imageFile != null) {
+        // This reuses your existing image upload logic which safely handles updating currentUser
+        await uploadProfilePicture(imageFile);
+      }
+
+      // 2. Proceed to update text fields
       final response = await _connect.put(
         '$baseUrl/update-profile',
         {
@@ -264,8 +271,10 @@ class AuthController extends GetxController {
       isLoading.value = false;
 
       if (response.statusCode == 200) {
-        final data = response.body;
+        // Ensure data is safely parsed as a Map
+        final Map<String, dynamic> data = Map<String, dynamic>.from(response.body);
         await _saveSession(data);
+        
         ApiErrorHandler.showSuccess("Success", "Profile updated successfully!");
         return true;
       } else {
@@ -279,11 +288,11 @@ class AuthController extends GetxController {
     } catch (e) {
       isLoading.value = false;
       final error = ApiErrorHandler.handleException(e);
+      // Fixed: Now showing the exception snackbar to user instead of a silent print log
       ApiErrorHandler.showError(error);
       return false;
     }
   }
-
   Future<bool> forgotPassword(String email) async {
     if (email.trim().isEmpty) {
       ApiErrorHandler.showError(const AppError(

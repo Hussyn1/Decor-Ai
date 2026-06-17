@@ -13,9 +13,6 @@ import 'projects_screen.dart';
 import 'discover_screen.dart';
 import '../services/firestore_project_service.dart';
 import 'settings_screen.dart';
-
-import 'ai_stylist_screen.dart';
-
 import 'package:get/get.dart';
 import '../controllers/home_controller.dart';
 import '../controllers/auth_controller.dart';
@@ -313,7 +310,7 @@ class _HomeDashboardState extends State<HomeDashboard> {
                 ),
                 child: _buildToolCard(
                   '2D to 3D',
-                  'Convert sketches',
+                  'Convert Images',
                   Icons.view_in_ar_outlined,
                   const Color(0xFFF3E5F5),
                   Colors.purple,

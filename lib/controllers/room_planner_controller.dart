@@ -42,6 +42,26 @@ class RoomPlannerController extends GetxController {
     if (h != null && h > 0) roomHeight.value = h;
   }
 
+  void setDimensionsFromScan({
+    required double width,
+    required double length,
+    double height = 2.4,
+  }) {
+    if (width.isFinite && width >= 0.2) {
+      roomWidth.value = double.parse(width.toStringAsFixed(2));
+    }
+    if (length.isFinite && length >= 0.2) {
+      roomLength.value = double.parse(length.toStringAsFixed(2));
+    }
+    if (height.isFinite && height > 0) {
+      roomHeight.value = double.parse(height.toStringAsFixed(2));
+    }
+
+    widthController.text = roomWidth.value.toString();
+    lengthController.text = roomLength.value.toString();
+    heightController.text = roomHeight.value.toString();
+  }
+
   
 
   

@@ -33,8 +33,12 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
   void initState() {
     super.initState();
     _currentProject = widget.project;
-    _plannerCtrl = Get.put(RoomPlannerController());
-    _catalogCtrl = Get.put(CatalogController());
+    _plannerCtrl = Get.isRegistered<RoomPlannerController>()
+        ? Get.find<RoomPlannerController>()
+        : Get.put(RoomPlannerController());
+    _catalogCtrl = Get.isRegistered<CatalogController>()
+        ? Get.find<CatalogController>()
+        : Get.put(CatalogController());
 
     
     if (_currentProject?.layoutData != null) {
@@ -57,8 +61,6 @@ class _ThreeFloorPlanScreenState extends State<ThreeFloorPlanScreen> {
       }
     }
   }
-
-  
   void _sendRoomDimensions() {
     if (!_webViewReady || _webViewController == null) return;
     final w = _plannerCtrl.roomWidth.value;
